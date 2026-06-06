@@ -4,9 +4,10 @@ import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Trash2, Search } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
-import { formatCnDateTime } from '../lib/utils'
+import { cn, formatCnDateTime } from '../lib/utils'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { MobileBackButton } from '../components/ui/MobileBackButton'
 import { Skeleton, ErrorBanner, EmptyState } from '../components/ui/States'
 import { ReportDetailView } from '../features/reports/ReportDetail'
 
@@ -17,6 +18,8 @@ export function ReportsPage() {
   const queryClient = useQueryClient()
 
   const activeId = searchParams.get('id') || undefined
+  const showList = !activeId
+  const showDetail = !!activeId
 
   const reportsQuery = useQuery({
     queryKey: ['reports'],
@@ -55,11 +58,13 @@ export function ReportsPage() {
     setSearchParams({ id })
   }
 
+  const backToList = () => setSearchParams({})
+
   if (reportsQuery.isLoading) {
     return (
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-        <Skeleton className="h-[480px]" />
-        <Skeleton className="h-[480px]" />
+        <Skeleton className={cn('h-[480px]', !showList && 'hidden lg:block')} />
+        <Skeleton className={cn('h-[480px]', !showDetail && 'hidden lg:block')} />
       </div>
     )
   }
@@ -76,7 +81,7 @@ export function ReportsPage() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-      <Card className="flex flex-col overflow-hidden">
+      <Card className={cn('flex flex-col overflow-hidden', !showList && 'hidden lg:flex')}>
         <div className="border-b border-[var(--color-border)] p-3">
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-[var(--color-muted)]" />
@@ -92,7 +97,7 @@ export function ReportsPage() {
             {selected.size > 0 && (
               <Button
                 variant="danger"
-                className="h-7 px-2 text-xs"
+                className="h-8 px-2 text-xs"
                 onClick={() => {
                   if (confirm(`确认删除 ${selected.size} 条报告？`)) {
                     deleteMutation.mutate([...selected])
@@ -104,7 +109,7 @@ export function ReportsPage() {
             )}
           </div>
         </div>
-        <ul className="flex-1 overflow-y-auto">
+        <ul className="max-h-none flex-1 overflow-y-auto lg:max-h-[calc(100vh-220px)]">
           {!filtered.length ? (
             <EmptyState title="暂无报告" description="让 OpenClaw 提交分析报告后将在此展示" />
           ) : (
@@ -127,7 +132,7 @@ export function ReportsPage() {
                       setSelected(next)
                     }}
                     onClick={(e) => e.stopPropagation()}
-                    className="mt-1"
+                    className="mt-1 h-4 w-4 shrink-0"
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium leading-snug line-clamp-2">{r.title || '未命名报告'}</p>
@@ -141,15 +146,21 @@ export function ReportsPage() {
         </ul>
       </Card>
 
-      <div className="min-w-0">
+      <div className={cn('min-w-0', !showDetail && 'hidden lg:block')}>
         {!activeId ? (
           <EmptyState title="选择一份报告" description="从左侧列表选择报告查看详细分析" />
         ) : detailQuery.isLoading ? (
           <Skeleton className="h-[600px]" />
         ) : detailQuery.isError ? (
-          <ErrorBanner message={(detailQuery.error as Error).message} onRetry={() => detailQuery.refetch()} />
+          <>
+            <MobileBackButton onClick={backToList} />
+            <ErrorBanner message={(detailQuery.error as Error).message} onRetry={() => detailQuery.refetch()} />
+          </>
         ) : detailQuery.data ? (
-          <ReportDetailView report={detailQuery.data} />
+          <>
+            <MobileBackButton onClick={backToList} />
+            <ReportDetailView report={detailQuery.data} />
+          </>
         ) : null}
       </div>
     </div>

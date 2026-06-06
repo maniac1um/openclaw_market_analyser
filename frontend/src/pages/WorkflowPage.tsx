@@ -140,7 +140,7 @@ export function WorkflowPage() {
             <Skeleton className="h-20" />
           ) : (
             ((diagQuery.data as { checks?: { label: string; ok: boolean; detail: string; severity: string }[] })?.checks || []).map((c) => (
-              <div key={c.label} className="flex items-start justify-between rounded-md border border-[var(--color-border)] px-3 py-2 text-sm">
+              <div key={c.label} className="flex flex-col gap-2 rounded-md border border-[var(--color-border)] px-3 py-2 text-sm sm:flex-row sm:items-start sm:justify-between">
                 <span>{c.label}</span>
                 <Badge variant={c.ok ? 'success' : c.severity === 'error' ? 'danger' : 'warning'}>
                   {c.detail}
@@ -160,8 +160,8 @@ export function WorkflowPage() {
             <p className="p-4 text-sm text-[var(--color-muted)]">暂无运行记录</p>
           ) : (
             runs.slice(0, 8).map((r, i) => (
-              <div key={i} className="flex items-center justify-between px-4 py-2 text-sm">
-                <span>{String(r.job_name || '-')}</span>
+              <div key={i} className="flex flex-col gap-1 px-4 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+                <span className="font-medium">{String(r.job_name || '-')}</span>
                 <div className="flex items-center gap-2">
                   <Badge variant={r.status === 'ok' ? 'success' : 'warning'}>{String(r.status)}</Badge>
                   <span className="text-xs text-[var(--color-muted)]">{formatCnDateTime(String(r.last_seen_at || ''))}</span>

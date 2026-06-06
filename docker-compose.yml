@@ -12,6 +12,7 @@ services:
       OPENCLAW_STATE_DIR: /openclaw-state
     volumes:
       - ./openclaw-state:/openclaw-state:ro
+      - ./frontend/dist:/app/frontend/dist:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

@@ -16,7 +16,7 @@ export function ReportDetailView({ report }: { report: ReportDetailType }) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{report.title || '未命名报告'}</h1>
+        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{report.title || '未命名报告'}</h1>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {report.keyword && <Badge>{report.keyword}</Badge>}
           <span className="text-sm text-[var(--color-muted)]">
