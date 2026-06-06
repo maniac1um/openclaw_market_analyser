@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     openclaw_ws_url: str = Field(default="ws://localhost:18789/ws")
     # Probe timeout for checking OpenClaw Gateway availability (seconds).
     openclaw_gateway_probe_timeout_seconds: float = Field(default=2.0)
+    # Max idle time waiting for the next Gateway event during one chat turn (seconds).
+    openclaw_chat_recv_timeout_seconds: float = Field(default=120.0)
+    # Max wall-clock time for one chat turn from connect through final event (seconds).
+    openclaw_chat_total_timeout_seconds: float = Field(default=600.0)
     bind_host: str = Field(default="0.0.0.0")
     bind_port: int = Field(default=8000)
     cors_origins: str = Field(

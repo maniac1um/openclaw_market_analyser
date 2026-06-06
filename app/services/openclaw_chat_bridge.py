@@ -12,6 +12,22 @@ from typing import Awaitable, Callable, Optional
 import websockets
 
 
+class ChatCancelledError(Exception):
+    """Raised when the browser client cancels an in-flight chat turn."""
+
+    def __init__(self, *, partial_text: str = "") -> None:
+        self.partial_text = partial_text
+        super().__init__("Chat turn cancelled")
+
+
+class OpenClawChatTimeoutError(Exception):
+    """Raised when Gateway stops sending events before the chat turn completes."""
+
+    def __init__(self, message: str, *, partial_text: str = "") -> None:
+        self.partial_text = partial_text
+        super().__init__(message)
+
+
 async def probe_openclaw_gateway(
     *,
     openclaw_ws_url: str,
@@ -106,6 +122,9 @@ async def stream_openclaw_reply(
     session_key: str,
     on_assistant_update: Callable[[str, bool], Awaitable[None]],
     flush_interval_seconds: float = 0.2,
+    recv_timeout_seconds: float = 120.0,
+    total_timeout_seconds: float = 600.0,
+    cancel_event: asyncio.Event | None = None,
 ) -> None:
     """
     Proxy one OpenClaw Gateway chat.send run for a single browser session.
@@ -150,6 +169,30 @@ async def stream_openclaw_reply(
     buffer = ""
     last_flushed_at = 0.0
     last_sent_text = None
+    started_at = time.monotonic()
+    recv_timeout = max(float(recv_timeout_seconds), 5.0)
+    total_timeout = max(float(total_timeout_seconds), recv_timeout)
+    last_event_at = started_at
+    poll_seconds = 1.0
+
+    async def _flush_if_needed(*, force: bool = False) -> None:
+        nonlocal last_flushed_at, last_sent_text
+        now = time.monotonic()
+        if buffer and buffer != last_sent_text and (
+            force or (now - last_flushed_at) >= flush_interval_seconds
+        ):
+            await on_assistant_update(buffer, False)
+            last_flushed_at = now
+            last_sent_text = buffer
+
+    def _check_cancel_and_total_timeout() -> None:
+        if cancel_event and cancel_event.is_set():
+            raise ChatCancelledError(partial_text=buffer)
+        if (time.monotonic() - started_at) >= total_timeout:
+            raise OpenClawChatTimeoutError(
+                f"OpenClaw 响应总时长超过 {int(total_timeout)} 秒。",
+                partial_text=buffer,
+            )
 
     # Expected OpenClaw emitted sessionKey looks like:
     #   agent:<defaultAgentId>:<session_key>
@@ -246,7 +289,18 @@ async def stream_openclaw_reply(
 
         # 5) Stream chat events and throttle to frontend
         while True:
-            raw = await oc_ws.recv()
+            _check_cancel_and_total_timeout()
+            try:
+                raw = await asyncio.wait_for(oc_ws.recv(), timeout=poll_seconds)
+            except asyncio.TimeoutError:
+                if (time.monotonic() - last_event_at) >= recv_timeout:
+                    raise OpenClawChatTimeoutError(
+                        f"OpenClaw 超过 {int(recv_timeout)} 秒无新响应。",
+                        partial_text=buffer,
+                    )
+                continue
+
+            last_event_at = time.monotonic()
             msg = json.loads(raw)
             if msg.get("type") != "event" or msg.get("event") != "chat":
                 continue
@@ -265,14 +319,9 @@ async def stream_openclaw_reply(
             if text_part:
                 buffer = text_part
 
-            now = time.monotonic()
-            if (now - last_flushed_at) >= flush_interval_seconds and buffer and buffer != last_sent_text:
-                await on_assistant_update(buffer, False)
-                last_flushed_at = now
-                last_sent_text = buffer
+            await _flush_if_needed()
 
             if state in ("final", "error", "aborted"):
-                # Ensure final content is sent immediately.
                 await on_assistant_update(buffer, True)
                 break
 

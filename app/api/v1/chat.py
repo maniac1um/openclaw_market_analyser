@@ -1,3 +1,4 @@
+import asyncio
 import time
 from collections import deque
 from typing import Any
@@ -7,7 +8,12 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from app.core.auth_service import REFRESH_COOKIE
 from app.core.config import settings
 from app.core.security import PORTAL_SESSION_COOKIE, is_websocket_authorized
-from app.services.openclaw_chat_bridge import probe_openclaw_gateway, stream_openclaw_reply
+from app.services.openclaw_chat_bridge import (
+    ChatCancelledError,
+    OpenClawChatTimeoutError,
+    probe_openclaw_gateway,
+    stream_openclaw_reply,
+)
 from app.utils.prompt_safety import check_user_message
 from app.utils.public_errors import sanitize_client_error, sanitize_gateway_probe_detail
 
@@ -16,10 +22,19 @@ router = APIRouter(
     tags=["OpenClaw 对话"],
 )
 
+_CANCEL_SUFFIX = "\n\n---\n\n（已停止生成）"
+_TIMEOUT_SUFFIX = "\n\n---\n\n（响应超时，可点击「停止」后重试或缩短问题）"
+
 
 async def _send_json(websocket: WebSocket, payload: dict[str, Any]) -> None:
-    # FastAPI/WebSocket will serialize JSON for us if we call send_json.
     await websocket.send_json(payload)
+
+
+def _append_status_suffix(text: str, suffix: str) -> str:
+    body = (text or "").rstrip()
+    if not body:
+        return suffix.strip()
+    return body + suffix
 
 
 @router.websocket("/ws")
@@ -36,9 +51,8 @@ async def chat_ws(websocket: WebSocket) -> None:
 
     await websocket.accept()
 
-    # Current implementation is sequential per WS connection:
-    # the client should not send a new user_message while one is running.
     active_session_key: str | None = None
+    active_cancel_event: asyncio.Event | None = None
     message_times: deque[float] = deque()
     msg_limit = max(1, int(settings.ws_messages_per_minute))
     try:
@@ -48,6 +62,17 @@ async def chat_ws(websocket: WebSocket) -> None:
                 continue
 
             msg_type = incoming.get("type")
+
+            if msg_type == "cancel_message":
+                cancel_key = incoming.get("sessionKey")
+                if (
+                    active_session_key
+                    and cancel_key == active_session_key
+                    and active_cancel_event is not None
+                ):
+                    active_cancel_event.set()
+                continue
+
             if msg_type != "user_message":
                 continue
 
@@ -64,7 +89,6 @@ async def chat_ws(websocket: WebSocket) -> None:
                     },
                 )
                 continue
-            message_times.append(now)
 
             if active_session_key is not None:
                 await _send_json(
@@ -103,7 +127,9 @@ async def chat_ws(websocket: WebSocket) -> None:
                 continue
 
             active_session_key = session_key
-            # Optional: send an early processing update for better UX.
+            cancel_event = asyncio.Event()
+            active_cancel_event = cancel_event
+
             await _send_json(
                 websocket,
                 {
@@ -123,6 +149,7 @@ async def chat_ws(websocket: WebSocket) -> None:
                         "sessionKey": session_key,
                         "text": delta_text,
                         "done": done,
+                        "status": "done" if done else "streaming",
                     },
                 )
 
@@ -139,6 +166,31 @@ async def chat_ws(websocket: WebSocket) -> None:
                     user_text=user_text,
                     session_key=session_key,
                     on_assistant_update=on_assistant_update,
+                    recv_timeout_seconds=settings.openclaw_chat_recv_timeout_seconds,
+                    total_timeout_seconds=settings.openclaw_chat_total_timeout_seconds,
+                    cancel_event=cancel_event,
+                )
+            except ChatCancelledError as exc:
+                await _send_json(
+                    websocket,
+                    {
+                        "type": "assistant_delta",
+                        "sessionKey": session_key,
+                        "text": _append_status_suffix(exc.partial_text, _CANCEL_SUFFIX),
+                        "done": True,
+                        "status": "cancelled",
+                    },
+                )
+            except OpenClawChatTimeoutError as exc:
+                await _send_json(
+                    websocket,
+                    {
+                        "type": "assistant_delta",
+                        "sessionKey": session_key,
+                        "text": _append_status_suffix(exc.partial_text, _TIMEOUT_SUFFIX),
+                        "done": True,
+                        "status": "timeout",
+                    },
                 )
             except Exception as exc:
                 await _send_json(
@@ -151,7 +203,7 @@ async def chat_ws(websocket: WebSocket) -> None:
                 )
             finally:
                 active_session_key = None
+                active_cancel_event = None
 
     except WebSocketDisconnect:
         return
-
