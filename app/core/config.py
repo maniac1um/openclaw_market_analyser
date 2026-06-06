@@ -1,5 +1,7 @@
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pathlib import Path
+import os
 
 
 class Settings(BaseSettings):
@@ -76,8 +78,55 @@ class Settings(BaseSettings):
     )
     login_max_attempts: int = Field(default=5)
     login_lockout_seconds: int = Field(default=900)
+    # Gateway proxy isolation: separate state dirs for portal (limited) vs admin device identity.
+    gateway_state_dir: str | None = Field(
+        default=None,
+        description="Admin/full Gateway device state (openclaw.json, identity/, devices/). "
+        "Falls back to OPENCLAW_STATE_DIR env or ~/.openclaw",
+    )
+    gateway_portal_state_dir: str | None = Field(
+        default=None,
+        description="Portal USER Gateway device state with restricted scopes. Required in production "
+        "when chat is enabled for USER role.",
+    )
+    gateway_portal_agent_id: str = Field(
+        default="portal-readonly",
+        description="OpenClaw agent id for portal USER chat (must be configured on Gateway)",
+    )
+    gateway_admin_agent_id: str = Field(
+        default="main",
+        description="OpenClaw agent id for ADMIN portal chat",
+    )
+    chat_enabled_for_user: bool = Field(
+        default=True,
+        description="When false, only ADMIN role may use portal chat WebSocket",
+    )
+    chat_user_messages_per_minute: int = Field(
+        default=30,
+        description="Per-user chat message rate limit across all WS connections",
+    )
 
     model_config = SettingsConfigDict(env_prefix="OPENCLAW_", env_file=".env", extra="ignore")
+
+    def resolve_gateway_state_dir(self, *, portal_role: str) -> Path:
+        """Return Gateway state directory for the given portal role."""
+        if portal_role == "ADMIN":
+            if self.gateway_state_dir:
+                return Path(self.gateway_state_dir)
+        else:
+            if self.gateway_portal_state_dir:
+                return Path(self.gateway_portal_state_dir)
+            if self.gateway_state_dir:
+                return Path(self.gateway_state_dir)
+        env_dir = os.environ.get("OPENCLAW_STATE_DIR")
+        if env_dir:
+            return Path(env_dir)
+        return Path.home() / ".openclaw"
+
+    def resolve_gateway_agent_id(self, *, portal_role: str) -> str:
+        if portal_role == "ADMIN":
+            return self.gateway_admin_agent_id
+        return self.gateway_portal_agent_id
 
 
 settings = Settings()

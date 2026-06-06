@@ -12,7 +12,7 @@ COPY pyproject.toml README.md ./
 COPY app ./app
 COPY scripts ./scripts
 ENV PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir --default-timeout=120 .
 COPY --from=frontend-build /build/dist ./frontend/dist
 RUN mkdir -p content/reports/raw content/reports/rendered \
     && useradd --create-home --uid 10001 --shell /usr/sbin/nologin appuser \

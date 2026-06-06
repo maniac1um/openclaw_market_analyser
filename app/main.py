@@ -32,9 +32,11 @@ async def lifespan(app: FastAPI):
     validate_security_config()
     if settings.database_url:
         try:
+            from app.db.audit_queries import ensure_audit_tables
             from app.db.user_queries import run_multi_user_migrations
 
             run_multi_user_migrations()
+            ensure_audit_tables()
         except Exception as exc:
             logging.getLogger(__name__).warning("multi-user migration skipped: %s", exc)
     if settings.monitoring_scheduler_enabled:

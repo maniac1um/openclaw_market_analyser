@@ -14,14 +14,23 @@ from app.core.security import (
     CurrentUser,
     resolve_websocket_user,
 )
+from app.db.query_context import ADMIN_ROLE
 from app.services.chat_run_store import ChatRunStatus, chat_run_store
+from app.services.gateway_audit_service import log_gateway_event
+from app.services.gateway_permission_checker import (
+    assert_chat_allowed,
+    build_gateway_message,
+)
 from app.services.openclaw_chat_bridge import (
     ChatCancelledError,
+    GatewayConnectContext,
     OpenClawChatTimeoutError,
+    build_gateway_session_key,
     probe_openclaw_gateway,
+    resolve_gateway_connect_context,
     stream_openclaw_reply,
 )
-from app.utils.prompt_safety import check_user_message
+from app.utils.path_safety import parse_uuid
 from app.utils.public_errors import sanitize_client_error, sanitize_gateway_probe_detail
 
 logger = logging.getLogger(__name__)
@@ -34,12 +43,9 @@ router = APIRouter(
 _CANCEL_SUFFIX = "\n\n---\n\n（已停止生成）"
 _TIMEOUT_SUFFIX = "\n\n---\n\n（响应超时，可点击「停止」后重试或缩短问题）"
 
-
-def _append_status_suffix(text: str, suffix: str) -> str:
-    body = (text or "").rstrip()
-    if not body:
-        return suffix.strip()
-    return body + suffix
+# Per-user sliding window rate limit (across WS connections)
+_user_message_times: dict[str, deque[float]] = {}
+_user_rate_lock = asyncio.Lock()
 
 
 def _run_to_payload(record) -> dict[str, Any]:
@@ -51,6 +57,31 @@ def _run_to_payload(record) -> dict[str, Any]:
         "error": record.error,
         "updatedAt": record.updated_at,
     }
+
+
+def _append_status_suffix(text: str, suffix: str) -> str:
+    body = (text or "").rstrip()
+    if not body:
+        return suffix.strip()
+    return body + suffix
+
+
+def _validate_client_session_key(session_key: str) -> bool:
+    """Client session keys must be UUIDs to prevent agent namespace injection."""
+    return parse_uuid(session_key) is not None
+
+
+async def _check_user_rate_limit(user_id: str) -> bool:
+    limit = max(1, int(settings.chat_user_messages_per_minute))
+    now = time.monotonic()
+    async with _user_rate_lock:
+        times = _user_message_times.setdefault(user_id, deque())
+        while times and times[0] < now - 60.0:
+            times.popleft()
+        if len(times) >= limit:
+            return False
+        times.append(now)
+    return True
 
 
 async def _safe_send_json(
@@ -70,14 +101,29 @@ async def _safe_send_json(
 async def _execute_chat_turn(
     *,
     owner_user_id: str,
-    session_key: str,
+    portal_role: str,
+    client_session_key: str,
     user_text: str,
+    connect_ctx: GatewayConnectContext,
     cancel_event: asyncio.Event,
     publish: Callable[[dict[str, Any]], Awaitable[None]],
+    audit_decision: str,
 ) -> None:
+    gateway_session_key = build_gateway_session_key(
+        agent_id=connect_ctx.agent_id,
+        portal_user_id=owner_user_id,
+        client_session_key=client_session_key,
+    )
+    gateway_message = build_gateway_message(
+        portal_user_id=owner_user_id,
+        portal_role=portal_role,
+        agent_id=connect_ctx.agent_id,
+        user_text=user_text,
+    )
+
     await chat_run_store.update_run(
         owner_user_id=owner_user_id,
-        session_key=session_key,
+        session_key=client_session_key,
         text="",
         done=False,
         status="processing",
@@ -85,7 +131,7 @@ async def _execute_chat_turn(
     await publish(
         {
             "type": "assistant_delta",
-            "sessionKey": session_key,
+            "sessionKey": client_session_key,
             "text": "",
             "done": False,
             "status": "processing",
@@ -96,7 +142,7 @@ async def _execute_chat_turn(
         run_status: ChatRunStatus = "done" if done else "streaming"
         await chat_run_store.update_run(
             owner_user_id=owner_user_id,
-            session_key=session_key,
+            session_key=client_session_key,
             text=delta_text,
             done=done,
             status=run_status,
@@ -104,13 +150,14 @@ async def _execute_chat_turn(
         await publish(
             {
                 "type": "assistant_delta",
-                "sessionKey": session_key,
+                "sessionKey": client_session_key,
                 "text": delta_text,
                 "done": done,
                 "status": run_status,
             }
         )
 
+    turn_started = time.monotonic()
     try:
         probe = await probe_openclaw_gateway(
             openclaw_ws_url=settings.openclaw_ws_url,
@@ -119,20 +166,34 @@ async def _execute_chat_turn(
         if not probe.get("ok"):
             detail = sanitize_gateway_probe_detail(str(probe.get("detail") or ""))
             raise RuntimeError(f"OpenClaw Gateway 当前不可用，请稍后重试。 detail={detail}")
-        await stream_openclaw_reply(
+
+        meta = await stream_openclaw_reply(
             openclaw_ws_url=settings.openclaw_ws_url,
-            user_text=user_text,
-            session_key=session_key,
+            user_text=gateway_message,
+            session_key=gateway_session_key,
+            connect_ctx=connect_ctx,
             on_assistant_update=on_assistant_update,
             recv_timeout_seconds=settings.openclaw_chat_recv_timeout_seconds,
             total_timeout_seconds=settings.openclaw_chat_total_timeout_seconds,
             cancel_event=cancel_event,
         )
+        latency_ms = int((time.monotonic() - turn_started) * 1000)
+        log_gateway_event(
+            user_id=owner_user_id,
+            user_role=portal_role,
+            session_key=client_session_key,
+            action="chat.send",
+            message=user_text,
+            decision=audit_decision,
+            agent_id=meta.get("agent_id"),
+            gateway_device_role=meta.get("gateway_device_role"),
+            latency_ms=latency_ms,
+        )
     except ChatCancelledError as exc:
         final_text = _append_status_suffix(exc.partial_text, _CANCEL_SUFFIX)
         await chat_run_store.update_run(
             owner_user_id=owner_user_id,
-            session_key=session_key,
+            session_key=client_session_key,
             text=final_text,
             done=True,
             status="cancelled",
@@ -140,17 +201,28 @@ async def _execute_chat_turn(
         await publish(
             {
                 "type": "assistant_delta",
-                "sessionKey": session_key,
+                "sessionKey": client_session_key,
                 "text": final_text,
                 "done": True,
                 "status": "cancelled",
             }
         )
+        log_gateway_event(
+            user_id=owner_user_id,
+            user_role=portal_role,
+            session_key=client_session_key,
+            action="chat.cancelled",
+            message=user_text,
+            decision=audit_decision,
+            agent_id=connect_ctx.agent_id,
+            gateway_device_role=connect_ctx.portal_role,
+            latency_ms=int((time.monotonic() - turn_started) * 1000),
+        )
     except OpenClawChatTimeoutError as exc:
         final_text = _append_status_suffix(exc.partial_text, _TIMEOUT_SUFFIX)
         await chat_run_store.update_run(
             owner_user_id=owner_user_id,
-            session_key=session_key,
+            session_key=client_session_key,
             text=final_text,
             done=True,
             status="timeout",
@@ -158,17 +230,28 @@ async def _execute_chat_turn(
         await publish(
             {
                 "type": "assistant_delta",
-                "sessionKey": session_key,
+                "sessionKey": client_session_key,
                 "text": final_text,
                 "done": True,
                 "status": "timeout",
             }
         )
+        log_gateway_event(
+            user_id=owner_user_id,
+            user_role=portal_role,
+            session_key=client_session_key,
+            action="chat.timeout",
+            message=user_text,
+            decision=audit_decision,
+            agent_id=connect_ctx.agent_id,
+            error_redacted="timeout",
+            latency_ms=int((time.monotonic() - turn_started) * 1000),
+        )
     except Exception as exc:
         error = sanitize_client_error(exc)
         await chat_run_store.update_run(
             owner_user_id=owner_user_id,
-            session_key=session_key,
+            session_key=client_session_key,
             text="",
             done=True,
             status="error",
@@ -177,9 +260,20 @@ async def _execute_chat_turn(
         await publish(
             {
                 "type": "assistant_error",
-                "sessionKey": session_key,
+                "sessionKey": client_session_key,
                 "error": error,
             }
+        )
+        log_gateway_event(
+            user_id=owner_user_id,
+            user_role=portal_role,
+            session_key=client_session_key,
+            action="chat.error",
+            message=user_text,
+            decision=audit_decision,
+            agent_id=connect_ctx.agent_id,
+            error_redacted=error[:200],
+            latency_ms=int((time.monotonic() - turn_started) * 1000),
         )
 
 
@@ -212,12 +306,22 @@ async def chat_ws(websocket: WebSocket) -> None:
 
     await websocket.accept()
     owner_user_id = str(ws_user.id)
+    portal_role = ws_user.role
     send_lock = asyncio.Lock()
     message_times: deque[float] = deque()
     msg_limit = max(1, int(settings.ws_messages_per_minute))
 
     async def publish(payload: dict[str, Any]) -> None:
         await _safe_send_json(websocket, payload, send_lock=send_lock)
+
+    log_gateway_event(
+        user_id=owner_user_id,
+        user_role=portal_role,
+        session_key=None,
+        action="ws.connect",
+        decision="allowed" if portal_role == ADMIN_ROLE or settings.chat_enabled_for_user else "restricted",
+        agent_id=settings.resolve_gateway_agent_id(portal_role=portal_role),
+    )
 
     try:
         while True:
@@ -264,23 +368,60 @@ async def chat_ws(websocket: WebSocket) -> None:
                 )
                 continue
 
+            if not _validate_client_session_key(session_key):
+                await publish(
+                    {
+                        "type": "assistant_error",
+                        "sessionKey": session_key,
+                        "error": "Invalid sessionKey format.",
+                    },
+                )
+                continue
+
+            perm = assert_chat_allowed(
+                ws_user,
+                user_text.strip(),
+                chat_enabled_for_user=settings.chat_enabled_for_user,
+                portal_agent_id=settings.gateway_portal_agent_id,
+                admin_agent_id=settings.gateway_admin_agent_id,
+            )
+            if not perm.allowed:
+                log_gateway_event(
+                    user_id=owner_user_id,
+                    user_role=portal_role,
+                    session_key=session_key,
+                    action="chat.blocked",
+                    message=user_text.strip(),
+                    decision=perm.decision,
+                    agent_id=perm.agent_id,
+                    gateway_device_role=perm.gateway_device_role,
+                    error_redacted=perm.reason,
+                )
+                await publish(
+                    {
+                        "type": "assistant_error",
+                        "sessionKey": session_key,
+                        "error": perm.reason or "消息未通过安全校验。",
+                    },
+                )
+                continue
+
+            if not await _check_user_rate_limit(owner_user_id):
+                await publish(
+                    {
+                        "type": "assistant_error",
+                        "sessionKey": session_key,
+                        "error": "User rate limit exceeded for chat messages.",
+                    },
+                )
+                continue
+
             if await chat_run_store.is_user_busy(owner_user_id, except_session_key=session_key):
                 await publish(
                     {
                         "type": "assistant_error",
                         "sessionKey": session_key,
                         "error": "Server busy: wait for the current reply to finish.",
-                    },
-                )
-                continue
-
-            blocked = check_user_message(user_text)
-            if blocked:
-                await publish(
-                    {
-                        "type": "assistant_error",
-                        "sessionKey": session_key,
-                        "error": f"消息未发送：检测到可能有害或违规内容（{blocked}）。请修改后重试。",
                     },
                 )
                 continue
@@ -301,13 +442,21 @@ async def chat_ws(websocket: WebSocket) -> None:
                 )
                 continue
 
+            connect_ctx = resolve_gateway_connect_context(
+                portal_user_id=owner_user_id,
+                portal_role=portal_role,
+            )
+
             asyncio.create_task(
                 _execute_chat_turn(
                     owner_user_id=owner_user_id,
-                    session_key=session_key,
+                    portal_role=portal_role,
+                    client_session_key=session_key,
                     user_text=user_text.strip(),
+                    connect_ctx=connect_ctx,
                     cancel_event=record.cancel_event,
                     publish=publish,
+                    audit_decision=perm.decision,
                 ),
                 name=f"chat-turn:{session_key}",
             )

@@ -31,6 +31,12 @@ def validate_security_config() -> None:
             "OPENCLAW_PRODUCTION=true requires OPENCLAW_GIT_AUTO_PUSH=false; use a controlled deploy pipeline."
         )
 
+    if settings.chat_enabled_for_user and not settings.gateway_portal_state_dir:
+        raise RuntimeError(
+            "OPENCLAW_PRODUCTION=true with OPENCLAW_CHAT_ENABLED_FOR_USER=true requires "
+            "OPENCLAW_GATEWAY_PORTAL_STATE_DIR (restricted portal Gateway device credentials)."
+        )
+
     if settings.portal_embed_api_key_in_spa:
         raise RuntimeError(
             "OPENCLAW_PRODUCTION=true requires OPENCLAW_PORTAL_EMBED_API_KEY_IN_SPA=false."

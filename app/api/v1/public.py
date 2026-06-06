@@ -1,7 +1,8 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from app.core.config import settings
-from app.core.security import CurrentUser, QueryCtx, verify_portal_write_auth, verify_user_api_key
+from app.core.security import AdminUser, CurrentUser, QueryCtx, verify_portal_write_auth, verify_user_api_key
+from app.db import audit_queries as audit_q
 from app.db import public_queries as pq
 from app.db.user_models import User
 from app.schemas.monitoring import MonitoringBootstrapRequest
@@ -122,6 +123,18 @@ def public_monitoring_observations(monitor_id: str, ctx: QueryCtx, limit: int = 
         raise HTTPException(status_code=404, detail="Monitor not found")
     cap_limit = max(1, min(int(limit), 1000))
     return pq.monitor_observations_public(monitor_id=monitor_id, limit=cap_limit, ctx=ctx)
+
+
+@router.get("/public/audit/gateway-events", summary="Gateway 对话审计事件（ADMIN）")
+def public_gateway_audit_events(
+    _: AdminUser,
+    limit: int = 100,
+    user_id: str | None = None,
+) -> dict:
+    if user_id and not parse_uuid(user_id):
+        raise HTTPException(status_code=422, detail="invalid user_id UUID")
+    events = audit_q.list_gateway_audit_events(limit=limit, user_id=user_id)
+    return {"events": events, "count": len(events)}
 
 
 @router.get("/public/workflow/state", summary="网页工作流总览状态")

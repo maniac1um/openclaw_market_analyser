@@ -24,7 +24,7 @@ flowchart LR
 | 新闻库 | 关键词新闻沉淀与浏览 |
 | 工作流 | 监测创建、联合分析、系统诊断 |
 | 多用户门户 | 注册/登录、JWT、per-user API Key、数据隔离 |
-| OpenClaw 对话 | 门户 WebSocket 聊天（需 Gateway）；后台生成 + 轮询恢复；超时/取消/切页不断线 |
+| OpenClaw 对话 | 门户 WebSocket 聊天（需 Gateway）；**USER/ADMIN 分 Agent 隔离**；后台生成 + 轮询恢复 |
 
 完整 API 见 [docs/api/openclaw-intake.md](docs/api/openclaw-intake.md) 与 `/docs`（Swagger）。
 
@@ -85,9 +85,15 @@ open http://localhost:5173
 | `OPENCLAW_CHAT_RECV_TIMEOUT_SECONDS` | 对话单轮 Gateway 空闲超时（秒，默认 120） |
 | `OPENCLAW_CHAT_TOTAL_TIMEOUT_SECONDS` | 对话单轮总时长上限（秒，默认 600） |
 | `OPENCLAW_WS_MESSAGES_PER_MINUTE` | 门户聊天 WS 发消息限速（默认 12/分钟） |
+| `OPENCLAW_CHAT_USER_MESSAGES_PER_MINUTE` | 每用户跨连接聊天限速（默认 30/分钟） |
+| `OPENCLAW_GATEWAY_STATE_DIR` | ADMIN 门户聊天 Gateway device 目录 |
+| `OPENCLAW_GATEWAY_PORTAL_STATE_DIR` | USER 受限 Gateway device 目录（**生产必填**） |
+| `OPENCLAW_GATEWAY_PORTAL_AGENT_ID` | USER 路由 Agent（默认 `portal-readonly`） |
+| `OPENCLAW_GATEWAY_ADMIN_AGENT_ID` | ADMIN 路由 Agent（默认 `main`） |
+| `OPENCLAW_CHAT_ENABLED_FOR_USER` | USER 是否可门户聊天（默认 true） |
 | `OPENCLAW_SERVE_SPA` | 是否挂载前端静态资源（默认 true） |
 
-完整列表：[`.env.example`](.env.example)
+Gateway 权限隔离详见 [docs/security/GATEWAY_ISOLATION.md](docs/security/GATEWAY_ISOLATION.md)。
 
 ## 目录结构
 
@@ -112,7 +118,7 @@ skills/           # Agent 技能（权威路径）
 | [docs/android-app.md](docs/android-app.md) | Android 内测 APK（Capacitor，`apk-test` 分支） |
 | [docs/developer-guide.md](docs/developer-guide.md) | 模块说明、开发规范 |
 | [docs/api/openclaw-intake.md](docs/api/openclaw-intake.md) | API 契约 |
-| [docs/multi-user/MULTI_USER_MIGRATION_PLAN.md](docs/multi-user/MULTI_USER_MIGRATION_PLAN.md) | 多用户 SaaS 迁移与实施状态 |
+| [docs/security/GATEWAY_ISOLATION.md](docs/security/GATEWAY_ISOLATION.md) | Gateway 网络隔离、双 Agent、双 device |
 | [docs/multi-user/MULTI_USER_TEST_PLAN.md](docs/multi-user/MULTI_USER_TEST_PLAN.md) | 多用户测试计划 |
 | [docs/cross-platform-development.md](docs/cross-platform-development.md) | Win/Ubuntu 协作 |
 | [skills/README.md](skills/README.md) | Agent Skill 包说明与路径约定 |

@@ -45,6 +45,10 @@ curl http://127.0.0.1:8000/healthz/db
 2. 进入 **账户**（`/account`）生成 **per-user API Key**
 3. 在 OpenClaw / cron 环境配置 `X-Api-Key`（**不再**使用全局 `dev-openclaw-key`，除非 `OPENCLAW_LEGACY_API_KEY_ENABLED=true`）
 
+### 5. 门户对话与 Gateway 隔离
+
+生产环境须配置双 Agent 与 portal device，否则 USER 可能获得 Gateway 管理员能力。完整步骤见 **[security/GATEWAY_ISOLATION.md](security/GATEWAY_ISOLATION.md)**。
+
 ## 生产构建（单体部署）
 
 ```bash

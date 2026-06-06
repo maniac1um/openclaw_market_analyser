@@ -32,7 +32,9 @@ sequenceDiagram
 |------|------|------|
 | WebSocket | `app/api/v1/chat.py` | 鉴权、限速、派发后台 `chat.send` |
 | 运行态存储 | `app/services/chat_run_store.py` | 内存中保存每轮 `sessionKey` 的最新正文与状态 |
-| Gateway 桥 | `app/services/openclaw_chat_bridge.py` | 设备签名、`stream_openclaw_reply`、空闲/总超时 |
+| Gateway 桥 | `app/services/openclaw_chat_bridge.py` | 按角色选择 device/agent、`stream_openclaw_reply` |
+| 权限校验 | `app/services/gateway_permission_checker.py` | USER/ADMIN 白名单、上下文注入 |
+| 审计 | `app/services/gateway_audit_service.py` | `gateway_audit_events` 结构化日志 |
 | 前端 Provider | `frontend/src/features/chat/ChatProvider.tsx` | 全站常驻 WS、pending 轮询、发送/取消 |
 | 对话 UI | `frontend/src/features/chat/ChatPage.tsx` | 首页布局与气泡 |
 | 本地会话 | `frontend/src/features/chat/storage.ts` | `localStorage` 多会话历史 |
@@ -45,7 +47,18 @@ sequenceDiagram
 | `GET /api/v1/chat/ws` | HttpOnly Refresh Cookie / Bearer / `X-Api-Key`（**禁止** Query `?api_key=`） |
 | `GET /api/v1/chat/runs/*` | 同上（`credentials: 'include'`） |
 
-数据按登录用户隔离；`sessionKey` 仅用于对话连续性，归属由服务端 `user_id` 校验。
+数据按登录用户隔离；`sessionKey` 为客户端 UUID，服务端转发 Gateway 时前缀 `{agent_id}:{user_id}:{uuid}`。
+
+## 权限隔离（2026-06 加固）
+
+| 门户角色 | Gateway device | Agent | 能力 |
+|----------|----------------|-------|------|
+| USER | `OPENCLAW_GATEWAY_PORTAL_STATE_DIR` | `portal-readonly` | 只读助手；禁止 shell/文件/配置 |
+| ADMIN | `OPENCLAW_GATEWAY_STATE_DIR` | `main` | 完整 Agent（仍须 Skill 安全门） |
+
+未登录用户无法连接 WS。生产部署见 [security/GATEWAY_ISOLATION.md](security/GATEWAY_ISOLATION.md)。
+
+ADMIN 审计：`GET /api/v1/public/audit/gateway-events`
 
 ## HTTP / WebSocket API
 

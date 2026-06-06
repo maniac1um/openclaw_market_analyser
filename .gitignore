@@ -20,6 +20,7 @@ htmlcov/
 
 # Docker-mounted OpenClaw Gateway state (contains tokens/keys)
 /openclaw-state/
+/openclaw-portal-state/
 
 # Test/runtime artifacts
 /tmp_*.json

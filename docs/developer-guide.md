@@ -84,7 +84,7 @@ cd frontend && npm run dev
 
 浏览器访问 `http://localhost:5173`，首次使用请 **注册/登录**。OpenClaw Agent 须在门户 **账户 → API Key 管理** 生成 per-user Key（全局 `dev-openclaw-key` 在 Legacy 关闭后无效）。
 
-**门户对话开发**：Gateway 需在宿主机单独运行；前端 `ChatProvider` 在 `AppShell` 外层维持 WS。行为与 API 见 [portal-chat.md](portal-chat.md)。
+**门户对话开发**：Gateway 需在宿主机单独运行；须配置 `portal-readonly` Agent 与 portal device（见 [security/GATEWAY_ISOLATION.md](security/GATEWAY_ISOLATION.md)）。前端 `ChatProvider` 在 `AppShell` 外层维持 WS。行为与 API 见 [portal-chat.md](portal-chat.md)。
 
 ## 多用户与鉴权
 
@@ -93,6 +93,7 @@ cd frontend && npm run dev
 | 门户登录 | JWT Access + HttpOnly Refresh Cookie；`/api/v1/public/auth/*` |
 | Agent 入站 | 请求头 `X-Api-Key: <per-user key>` |
 | Public 读 | 方案 B：JWT 或 per-user Key；USER 仅见本用户数据 |
+| 门户聊天 | USER → `portal-readonly` Agent；ADMIN → `main`；见 `GatewayPermissionChecker` |
 | Legacy Key | `OPENCLAW_LEGACY_API_KEY_ENABLED`（默认 **false**） |
 | Bootstrap ADMIN | `admin@localhost` / `Test_648.`（启动时自动创建；生产请尽快改密） |
 
@@ -102,7 +103,8 @@ cd frontend && npm run dev
 
 ```bash
 source .venv/bin/activate
-pytest -q                                    # 全量（约 85 项）
+pytest -q                                    # 全量
+pytest tests/api/test_gateway_security.py -v # Gateway 权限隔离
 pytest tests/api/test_multi_user_*.py -v     # 多用户集成
 pytest tests/test_prompt_safety.py -v        # 对话违规词过滤
 ```

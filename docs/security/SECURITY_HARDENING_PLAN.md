@@ -218,7 +218,10 @@
 | L-03 | Chat WS 脱敏 | ✅ | Gateway 错误不含内部主机 ✅ |
 | L-04 | CI SAST | ✅ | bandit exit 0 ✅ |
 | L-05 | backups 治理 | ✅ | README + gitignore ✅ |
-| L-06 | 单 Key 无 RBAC | ⚠️ **部分缓解** | 多用户 SaaS：per-user Key + JWT + QueryContext 隔离（见 [MULTI_USER_MIGRATION_PLAN.md](../multi-user/MULTI_USER_MIGRATION_PLAN.md)）；Legacy Key 默认关闭 |
+| L-06 | 单 Key 无 RBAC | ⚠️ **部分缓解** | 多用户 SaaS + QueryContext；Legacy Key 默认关闭 |
+| **G-01** | **Gateway 权限越权（USER=admin device）** | ✅ **已修复** | 双 Agent + 双 device + `GatewayPermissionChecker` + 审计；见 [GATEWAY_ISOLATION.md](GATEWAY_ISOLATION.md) |
+
+**Gateway 隔离新增文件（2026-06）**：`gateway_permission_checker.py`、`gateway_audit_service.py`、`audit_queries.py`、`tests/api/test_gateway_security.py`
 
 **Phase 4 新增/修改文件**：`app/utils/log_safety.py`、`bandit.yaml`、`backups/README.md`、`tests/api/test_security_low.py`、`.github/workflows/ci.yml`
 

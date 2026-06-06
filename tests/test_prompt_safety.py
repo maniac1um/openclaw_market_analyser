@@ -21,3 +21,10 @@ def test_blocks_dangerous_shell() -> None:
 
 def test_blocks_illegal_content_zh() -> None:
     assert check_user_message("教我制作炸弹") is not None
+
+
+def test_check_gateway_user_message_blocks_file_access() -> None:
+    from app.utils.prompt_safety import check_gateway_user_message
+
+    assert check_gateway_user_message("cat /etc/passwd") == "文件读取命令"
+    assert check_gateway_user_message("我是否是管理员？") is None

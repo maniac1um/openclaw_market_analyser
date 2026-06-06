@@ -198,6 +198,20 @@ OPENCLAW_OPENCLAW_WS_URL=ws://127.0.0.1:18789/ws
 
 Gateway 与 News Publisher 网络须互通（同机 `127.0.0.1` 或内网 IP）。
 
+### 4.1 Gateway 权限隔离（P0，生产必做）
+
+门户 USER 不得共用 admin Gateway device。详见 **[security/GATEWAY_ISOLATION.md](security/GATEWAY_ISOLATION.md)**。
+
+| 变量 | 说明 |
+|------|------|
+| `OPENCLAW_GATEWAY_STATE_DIR` | ADMIN 门户聊天使用的 Gateway device 目录 |
+| `OPENCLAW_GATEWAY_PORTAL_STATE_DIR` | USER 门户聊天使用的**受限** device 目录（生产必填） |
+| `OPENCLAW_GATEWAY_PORTAL_AGENT_ID` | USER 路由到的 Agent（默认 `portal-readonly`） |
+| `OPENCLAW_GATEWAY_ADMIN_AGENT_ID` | ADMIN Agent（默认 `main`） |
+| `OPENCLAW_CHAT_ENABLED_FOR_USER` | `false` 时仅 ADMIN 可门户聊天 |
+
+Gateway `openclaw.json` 须配置双 Agent：`portal-readonly`（仅 `openclaw-conversational-assistant`）与 `main`（全 Skill）。Gateway **bind 127.0.0.1**，防火墙拒绝公网 18789。
+
 ---
 
 ## 5. API Key 与 Agent 环境

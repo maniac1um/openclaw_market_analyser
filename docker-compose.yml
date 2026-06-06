@@ -10,11 +10,16 @@ services:
       OPENCLAW_MONITORING_DATABASE_URL: ${OPENCLAW_MONITORING_DATABASE_URL:-postgresql://openclaw_monitor:openclaw_dev@postgres:5432/openclaw_monitor}
       OPENCLAW_NEWS_DATABASE_URL: ${OPENCLAW_NEWS_DATABASE_URL:-postgresql://openclaw_news:openclaw_dev@postgres:5432/openclaw_news}
       OPENCLAW_STATE_DIR: /openclaw-state
+      OPENCLAW_GATEWAY_STATE_DIR: ${OPENCLAW_GATEWAY_STATE_DIR:-/openclaw-state}
+      OPENCLAW_GATEWAY_PORTAL_STATE_DIR: ${OPENCLAW_GATEWAY_PORTAL_STATE_DIR:-/openclaw-portal-state}
     volumes:
+      - ./app:/app/app:ro   # 可选：热更新后端代码；正式发布建议 rebuild 镜像
       - ./openclaw-state:/openclaw-state:ro
+      - ./openclaw-portal-state:/openclaw-portal-state:ro
       - ./frontend/dist:/app/frontend/dist:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # Gateway (18789) runs on host — NOT published here. App reaches it via host.docker.internal or 127.0.0.1 bind.
     depends_on:
       postgres:
         condition: service_healthy

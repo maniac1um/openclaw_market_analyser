@@ -89,7 +89,7 @@ sequenceDiagram
 
 ## 门户对话
 
-首页经 WebSocket 代理 OpenClaw Gateway；每轮对话在服务端 **`chat_run_store`（内存）** 保留最新正文，客户端断线或切换 SPA 页面后可通过 **`GET /chat/runs/{sessionKey}`** 恢复。前端 **`ChatProvider`** 全站维持一条 WS，并进行中任务轮询。
+首页经 WebSocket 代理 OpenClaw Gateway；**USER 与 ADMIN 使用不同 Agent / device 凭证**（见 [security/GATEWAY_ISOLATION.md](security/GATEWAY_ISOLATION.md)）。每轮对话在服务端 **`chat_run_store`（内存）** 保留最新正文，客户端可通过 **`GET /chat/runs/{sessionKey}`** 恢复。
 
 详见 [portal-chat.md](portal-chat.md)。
 
@@ -101,7 +101,7 @@ sequenceDiagram
 
 ## OpenClaw Gateway
 
-`OPENCLAW_OPENCLAW_WS_URL`（默认 `ws://localhost:18789/ws`）用于门户聊天 WebSocket 代理。工作流诊断会探测 Gateway 连通性。对话超时与后台 run 见 [portal-chat.md](portal-chat.md)。
+`OPENCLAW_OPENCLAW_WS_URL` 用于门户聊天 WebSocket 代理。生产须配置双 Agent（`portal-readonly` / `main`）与双 device 目录，详见 [security/GATEWAY_ISOLATION.md](security/GATEWAY_ISOLATION.md)。
 
 ## 模块地图
 
@@ -109,10 +109,13 @@ sequenceDiagram
 |------|------|
 | `app/main.py` | App 工厂、CORS、SPA 静态挂载、健康检查 |
 | `app/api/v1/openclaw.py` | Agent 入站 API |
-| `app/api/v1/public.py` | 公开 REST + 工作流 |
-| `app/api/v1/chat.py` | WebSocket 聊天 + run 轮询 REST |
+| `app/api/v1/public.py` | 公开 REST + 工作流 + 审计 API |
+| `app/api/v1/chat.py` | WebSocket 聊天 + RBAC + run 轮询 |
 | `app/services/chat_run_store.py` | 对话后台 run 内存态 |
-| `app/services/openclaw_chat_bridge.py` | Gateway WS 桥接与流式解析 |
+| `app/services/openclaw_chat_bridge.py` | Gateway WS 桥接（按角色选 device/agent） |
+| `app/services/gateway_permission_checker.py` | 门户聊天权限白名单 |
+| `app/services/gateway_audit_service.py` | Gateway 审计日志 |
+| `app/db/audit_queries.py` | `gateway_audit_events` 持久化 |
 | `app/db/public_queries.py` | 三库 SQL 查询 |
 | `app/services/news_analysis_service.py` | 新闻+价格联合分析 |
 | `app/workers/job_runner.py` | 后台渲染与发布 |

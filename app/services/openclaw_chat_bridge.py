@@ -1,15 +1,17 @@
 import asyncio
 import base64
 import json
-import os
 import subprocess
 import tempfile
 import time
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Awaitable, Callable, Optional
 
 import websockets
+
+from app.core.config import settings
 
 
 class ChatCancelledError(Exception):
@@ -26,6 +28,33 @@ class OpenClawChatTimeoutError(Exception):
     def __init__(self, message: str, *, partial_text: str = "") -> None:
         self.partial_text = partial_text
         super().__init__(message)
+
+
+@dataclass(frozen=True)
+class GatewayConnectContext:
+    """Portal-side identity injected into each Gateway chat.send turn."""
+
+    portal_user_id: str
+    portal_role: str
+    agent_id: str
+    state_dir: Path
+
+
+def build_gateway_session_key(*, agent_id: str, portal_user_id: str, client_session_key: str) -> str:
+    """Namespaced session key prevents client from hijacking admin agent sessions."""
+    safe_client = (client_session_key or "").strip()
+    return f"{agent_id}:{portal_user_id}:{safe_client}"
+
+
+def resolve_gateway_connect_context(*, portal_user_id: str, portal_role: str) -> GatewayConnectContext:
+    agent_id = settings.resolve_gateway_agent_id(portal_role=portal_role)
+    state_dir = settings.resolve_gateway_state_dir(portal_role=portal_role)
+    return GatewayConnectContext(
+        portal_user_id=portal_user_id,
+        portal_role=portal_role,
+        agent_id=agent_id,
+        state_dir=state_dir,
+    )
 
 
 async def probe_openclaw_gateway(
@@ -115,34 +144,10 @@ def _sign_ed25519_openssl(private_key_pem: str, payload: str) -> str:
         return _b64url_encode(proc.stdout)
 
 
-async def stream_openclaw_reply(
-    *,
-    openclaw_ws_url: str,
-    user_text: str,
-    session_key: str,
-    on_assistant_update: Callable[[str, bool], Awaitable[None]],
-    flush_interval_seconds: float = 0.2,
-    recv_timeout_seconds: float = 120.0,
-    total_timeout_seconds: float = 600.0,
-    cancel_event: asyncio.Event | None = None,
-) -> None:
-    """
-    Proxy one OpenClaw Gateway chat.send run for a single browser session.
-
-    Implementation details:
-    - Perform Gateway `connect` handshake (requires device identity + Ed25519 signature).
-    - Call `chat.send` with the given `session_key`.
-    - Listen to `event: "chat"` stream and extract assistant text from `payload.message`.
-    - Throttle client pushes: aggregate and send updates every `flush_interval_seconds`.
-    """
-
-    # 勿硬编码本机用户名；公开仓库可配合 OPENCLAW_STATE_DIR 覆盖
-    openclaw_state_dir = Path(
-        os.environ.get("OPENCLAW_STATE_DIR", str(Path.home() / ".openclaw"))
-    )
-    openclaw_json_path = openclaw_state_dir / "openclaw.json"
-    device_auth_path = openclaw_state_dir / "identity" / "device.json"
-    paired_devices_path = openclaw_state_dir / "devices" / "paired.json"
+def _load_gateway_credentials(state_dir: Path) -> dict:
+    openclaw_json_path = state_dir / "openclaw.json"
+    device_auth_path = state_dir / "identity" / "device.json"
+    paired_devices_path = state_dir / "devices" / "paired.json"
 
     openclaw_cfg = json.loads(openclaw_json_path.read_text("utf-8"))
     gateway_token = openclaw_cfg["gateway"]["auth"]["token"]
@@ -156,13 +161,51 @@ async def stream_openclaw_reply(
     if not paired_entry:
         raise RuntimeError(f"Missing paired device identity for deviceId={device_id}")
 
-    client_id: str = paired_entry["clientId"]
-    client_mode: str = paired_entry["clientMode"]
-    role: str = paired_entry["role"]
-    scopes: list[str] = paired_entry["scopes"]
-    public_key_b64url: str = paired_entry["publicKey"]
-    platform: str = paired_entry.get("platform") or "linux"
-    device_family: str = ""  # leave empty (signature payload still valid)
+    return {
+        "gateway_token": gateway_token,
+        "device_id": device_id,
+        "private_key_pem": private_key_pem,
+        "client_id": paired_entry["clientId"],
+        "client_mode": paired_entry["clientMode"],
+        "role": paired_entry["role"],
+        "scopes": paired_entry["scopes"],
+        "public_key_b64url": paired_entry["publicKey"],
+        "platform": paired_entry.get("platform") or "linux",
+    }
+
+
+async def stream_openclaw_reply(
+    *,
+    openclaw_ws_url: str,
+    user_text: str,
+    session_key: str,
+    connect_ctx: GatewayConnectContext,
+    on_assistant_update: Callable[[str, bool], Awaitable[None]],
+    flush_interval_seconds: float = 0.2,
+    recv_timeout_seconds: float = 120.0,
+    total_timeout_seconds: float = 600.0,
+    cancel_event: asyncio.Event | None = None,
+) -> dict:
+    """
+    Proxy one OpenClaw Gateway chat.send run for a single portal user session.
+
+    Uses role-specific Gateway device credentials from *connect_ctx.state_dir*
+    and routes to *connect_ctx.agent_id*.
+
+    Returns metadata dict with gateway_device_role and agent_id for audit.
+    """
+    creds = _load_gateway_credentials(connect_ctx.state_dir)
+    gateway_token = creds["gateway_token"]
+    device_id = creds["device_id"]
+    private_key_pem = creds["private_key_pem"]
+    client_id = creds["client_id"]
+    client_mode = creds["client_mode"]
+    role = creds["role"]
+    scopes = creds["scopes"]
+    public_key_b64url = creds["public_key_b64url"]
+    platform = creds["platform"]
+    device_family = ""
+    agent_id = connect_ctx.agent_id
 
     signed_at_ms = int(time.time() * 1000)
 
@@ -194,20 +237,22 @@ async def stream_openclaw_reply(
                 partial_text=buffer,
             )
 
-    # Expected OpenClaw emitted sessionKey looks like:
-    #   agent:<defaultAgentId>:<session_key>
-    # We can match by suffix to avoid depending on defaultAgentId.
+    # Gateway emits sessionKey like agent:<agentId>:<our_session_key>
     session_key_suffix = ":" + session_key
 
+    display_name = (
+        "openclaw-news-publisher-portal"
+        if connect_ctx.portal_role != "ADMIN"
+        else "openclaw-news-publisher-admin"
+    )
+
     async with websockets.connect(openclaw_ws_url) as oc_ws:
-        # 1) Wait for connect.challenge
         first_raw = await oc_ws.recv()
         first = json.loads(first_raw)
         if first.get("type") != "event" or first.get("event") != "connect.challenge":
             raise RuntimeError(f"Expected connect.challenge, got: {first}")
         connect_nonce = first["payload"]["nonce"]
 
-        # 2) Build device signature for Gateway connect
         scopes_csv = ",".join(scopes)
         payload_v3 = "|".join(
             [
@@ -235,7 +280,7 @@ async def stream_openclaw_reply(
                 "maxProtocol": 4,
                 "client": {
                     "id": client_id,
-                    "displayName": "openclaw-news-publisher",
+                    "displayName": display_name,
                     "version": "0.1.0",
                     "platform": platform,
                     "mode": client_mode,
@@ -259,7 +304,6 @@ async def stream_openclaw_reply(
         }
         await oc_ws.send(json.dumps(connect_req, ensure_ascii=False))
 
-        # 3) Wait for connect res (or any auth failure)
         while True:
             res_raw = await oc_ws.recv()
             res = json.loads(res_raw)
@@ -268,12 +312,7 @@ async def stream_openclaw_reply(
                     raise RuntimeError(f"OpenClaw connect failed: {res}")
                 break
 
-        # 4) chat.send
         chat_req_id = "chat.send:" + session_key
-        # Important: idempotencyKey must be unique per user message.
-        # If we reuse the same sessionKey across multi-turn conversations,
-        # but keep idempotencyKey identical, the Gateway may treat subsequent
-        # chat.send calls as duplicates and fail to advance the conversation.
         idem = "idem:" + session_key + ":" + str(uuid.uuid4())
         chat_req = {
             "type": "req",
@@ -281,13 +320,13 @@ async def stream_openclaw_reply(
             "method": "chat.send",
             "params": {
                 "sessionKey": session_key,
+                "agentId": agent_id,
                 "message": user_text,
                 "idempotencyKey": idem,
             },
         }
         await oc_ws.send(json.dumps(chat_req, ensure_ascii=False))
 
-        # 5) Stream chat events and throttle to frontend
         while True:
             _check_cancel_and_total_timeout()
             try:
@@ -325,3 +364,9 @@ async def stream_openclaw_reply(
                 await on_assistant_update(buffer, True)
                 break
 
+    elapsed_ms = int((time.monotonic() - started_at) * 1000)
+    return {
+        "agent_id": agent_id,
+        "gateway_device_role": role,
+        "latency_ms": elapsed_ms,
+    }

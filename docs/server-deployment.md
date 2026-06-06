@@ -59,8 +59,14 @@ OPENCLAW_PORTAL_EMBED_API_KEY_IN_SPA=false
 OPENCLAW_EXPOSE_OPENAPI=false
 OPENCLAW_CORS_ORIGINS=          # 单体部署可留空
 OPENCLAW_SERVE_SPA=true
-OPENCLAW_OPENCLAW_WS_URL=ws://<gateway-host>:18789/ws
+OPENCLAW_OPENCLAW_WS_URL=ws://127.0.0.1:18789/ws
 OPENCLAW_TRUST_X_FORWARDED_FOR=true   # 仅当反代可信且需按真实 IP 限流时
+# Gateway 权限隔离（P0）— 见 docs/security/GATEWAY_ISOLATION.md
+OPENCLAW_GATEWAY_STATE_DIR=/opt/openclaw-admin-state
+OPENCLAW_GATEWAY_PORTAL_STATE_DIR=/opt/openclaw-portal-state
+OPENCLAW_GATEWAY_PORTAL_AGENT_ID=portal-readonly
+OPENCLAW_GATEWAY_ADMIN_AGENT_ID=main
+OPENCLAW_CHAT_ENABLED_FOR_USER=true
 ```
 
 门户写操作（bulk-delete、工作流诊断等）通过浏览器访问时，前端会先 `POST /api/v1/public/auth/session`（携带 `X-Api-Key`）换取 **HttpOnly Cookie**，后续请求自动 `credentials: include`；Agent 直连仍使用 `X-Api-Key` 头。
@@ -85,6 +91,19 @@ curl -s http://127.0.0.1:8000/healthz/db
 ```
 
 浏览器访问 `http://<服务器IP>:8000/` 应看到 SPA 首页（对话界面）。
+
+**Gateway 隔离验收**（P0，详见 [security/GATEWAY_ISOLATION.md](security/GATEWAY_ISOLATION.md)）：
+
+```bash
+# Gateway 仅监听回环（在 Gateway 宿主机执行）
+ss -tlnp | grep 18789   # 期望 127.0.0.1:18789
+
+# Docker 未暴露 18789
+docker compose ps       # app 仅映射 8000
+
+# 生产 env 已配置 portal 受限 device
+grep OPENCLAW_GATEWAY_PORTAL_STATE_DIR .env
+```
 
 ### 4. 更新发布
 
@@ -368,6 +387,9 @@ sudo ufw enable
 - [ ] `frontend/dist` 已构建（Docker 或 `npm run build`）
 - [ ] `curl /healthz` 与 `/healthz/db` 正常
 - [ ] 反向代理 + TLS 已配置
+- [ ] **Gateway 隔离**：`portal-readonly` Agent、`openclaw-portal-state`、`.env` 中 `OPENCLAW_GATEWAY_PORTAL_STATE_DIR`（见 [security/GATEWAY_ISOLATION.md](security/GATEWAY_ISOLATION.md)）
+- [ ] `ufw deny 18789/tcp`；Docker **未** publish 18789
+- [ ] USER 复测：问「我是否是管理员」不应回答 Gateway admin
 - [ ] WebSocket 对话可连接；切页后后台生成与轮询正常（见 [portal-chat.md](portal-chat.md)）
 - [ ] OpenClaw Agent 可成功 POST 报告/价格观测
 - [ ] 防火墙仅开放必要端口
@@ -379,3 +401,4 @@ sudo ufw enable
 - [architecture.md](architecture.md) — 系统架构与数据流
 - [portal-chat.md](portal-chat.md) — 门户对话与后台 run
 - [developer-guide.md](developer-guide.md) — 模块说明与开发规范
+- [security/GATEWAY_ISOLATION.md](security/GATEWAY_ISOLATION.md) — Gateway 权限隔离（P0）

@@ -45,7 +45,7 @@ def test_ws_gateway_error_is_sanitized(monkeypatch: pytest.MonkeyPatch, api_head
         "/api/v1/chat/ws",
         headers={"x-api-key": api_headers["X-Api-Key"]},
     ) as ws:
-        ws.send_json({"type": "user_message", "sessionKey": "s1", "text": "hello"})
+        ws.send_json({"type": "user_message", "sessionKey": "00000000-0000-4000-8000-000000000001", "text": "hello"})
         first = ws.receive_json()
         assert first["type"] == "assistant_delta"
         msg = ws.receive_json()
