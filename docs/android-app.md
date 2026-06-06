@@ -45,6 +45,61 @@ cd frontend/android && ./gradlew assembleDebug
 可将 `JAVA_HOME` 写入 `~/.bashrc` 持久生效。  
 **更省事**：直接用 Android Studio 打开 `frontend/android` 并点 Run，会使用 IDE 内置 JDK，无需手动配 `JAVA_HOME`。
 
+### Android SDK 路径（`SDK location not found`）
+
+若报错：
+
+```text
+SDK location not found. Define a valid SDK location with an ANDROID_HOME
+environment variable or by setting the sdk.dir path in local.properties
+```
+
+说明 **尚未安装 Android SDK**，或未告诉 Gradle SDK 在哪。JDK 17/21  alone 不够，还必须装 Android Studio（或 Command-line Tools）里的 SDK。
+
+**步骤 1 — 安装 Android Studio**（若还没有）
+
+从 https://developer.android.com/studio 安装，首次启动完成向导。SDK 默认在：
+
+```text
+~/Android/Sdk
+```
+
+在 **Settings → Languages & Frameworks → Android SDK** 中确认已安装：
+
+- **Android 16 (API 36)** — 与工程 `compileSdkVersion = 36` 一致
+- **Android SDK Build-Tools**
+- **Android SDK Platform-Tools**（含 `adb`）
+
+**步骤 2 — 配置 SDK 路径（任选一种）**
+
+方式 A — `local.properties`（推荐，仅本机）：
+
+```bash
+cd frontend/android
+cp local.properties.example local.properties
+# 编辑 sdk.dir，例如：
+echo "sdk.dir=$HOME/Android/Sdk" > local.properties
+```
+
+方式 B — 环境变量：
+
+```bash
+export ANDROID_HOME=$HOME/Android/Sdk
+export PATH=$PATH:$ANDROID_HOME/platform-tools
+```
+
+写入 `~/.bashrc` 后 `source ~/.bashrc`。
+
+**步骤 3 — 验证并重试**
+
+```bash
+test -d "$HOME/Android/Sdk/platform-tools" && echo "SDK OK"
+cd ~/openclaw_market_analyser/frontend/android
+./gradlew assembleDebug
+```
+
+`local.properties` 已在 `.gitignore` 中，**不会提交到 Git**，每台开发机需各自配置一次。
+
 ## 首次构建
 
 ```bash
