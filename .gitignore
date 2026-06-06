@@ -1,0 +1,46 @@
+/.venv/
+*.egg-info/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+.cursor/
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Env files (keep secrets local)
+.env
+.env.*
+!.env.example
+
+# Docker-mounted OpenClaw Gateway state (contains tokens/keys)
+/openclaw-state/
+
+# Test/runtime artifacts
+/tmp_*.json
+
+# Generated report data (do not commit runtime outputs)
+/content/reports/raw/*.json
+/content/reports/rendered/*.json
+
+# Keep helper scripts in git; they should stay generic and secret-free.
+
+# Local planning notes (do not commit)
+/local_notes/
+
+# Local backup artifacts and private runbook (never commit secrets)
+/backups/*
+!/backups/README.md
+/docs/backup-and-restore.md
+
+# Desktop WebView shell（本地使用，不纳入版本库）
+/webview_app/
+
+# Frontend build artifacts
+/frontend/node_modules/
+/frontend/dist/

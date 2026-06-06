@@ -1,0 +1,41 @@
+services:
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - .env
+    environment:
+      OPENCLAW_DATABASE_URL: ${OPENCLAW_DATABASE_URL:-postgresql://openclaw_app:openclaw_dev@postgres:5432/openclaw_app}
+      OPENCLAW_MONITORING_DATABASE_URL: ${OPENCLAW_MONITORING_DATABASE_URL:-postgresql://openclaw_monitor:openclaw_dev@postgres:5432/openclaw_monitor}
+      OPENCLAW_NEWS_DATABASE_URL: ${OPENCLAW_NEWS_DATABASE_URL:-postgresql://openclaw_news:openclaw_dev@postgres:5432/openclaw_news}
+      OPENCLAW_STATE_DIR: /openclaw-state
+    volumes:
+      - ./openclaw-state:/openclaw-state:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+    restart: unless-stopped
+
+  postgres:
+    profiles: ["full"]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: openclaw
+      # Override in production: POSTGRES_PASSWORD=<strong-random>
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-openclaw_dev}
+    # No host port mapping by default — DB reachable only on the Docker network.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/docker/init-databases.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openclaw"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
