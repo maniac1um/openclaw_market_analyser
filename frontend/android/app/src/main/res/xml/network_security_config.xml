@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Trust the OpenClaw server self-signed certificate for the portal IP. -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="false">115.120.202.223</domain>
+        <trust-anchors>
+            <certificates src="@raw/openclaw_server" />
+        </trust-anchors>
+    </domain-config>
+
+    <!-- Debug builds: same trust for WebView / Capacitor during local APK testing. -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="@raw/openclaw_server" />
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>

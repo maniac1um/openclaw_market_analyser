@@ -68,6 +68,7 @@ open http://localhost:5173
 
 - 本地开发：[docs/deployment.md](docs/deployment.md)
 - 服务器 / 生产：[docs/server-deployment.md](docs/server-deployment.md)
+- **Android 内测 APK（Capacitor）**：[docs/android-app.md](docs/android-app.md)（`apk-test` 分支）
 - **OpenClaw Skills 挂载 Gateway**：[docs/openclaw-skills-deploy.md](docs/openclaw-skills-deploy.md)
 
 ## 环境变量
