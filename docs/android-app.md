@@ -14,11 +14,36 @@
 
 在 **本机**（Windows / macOS / Linux）安装：
 
-- [Android Studio](https://developer.android.com/studio)（含 SDK、Platform Tools）
+- [Android Studio](https://developer.android.com/studio)（含 SDK、Platform Tools；**推荐**，自带 JDK）
 - Node.js 22+（与 `frontend/` 一致）
-- JDK 17+
+- **JDK 17 或 21 完整版**（须含 `javac`，不能只有 JRE）
 
 > 服务器上通常只跑 Web 服务；APK 在开发机构建。
+
+### Ubuntu / Debian 安装 JDK
+
+若 `./gradlew assembleDebug` 报错：
+
+```text
+does not provide the required capabilities: [JAVA_COMPILER]
+```
+
+说明当前 `JAVA_HOME` 指向的 Java **没有编译器**。请安装完整 JDK：
+
+```bash
+sudo apt update
+sudo apt install openjdk-21-jdk
+# 或 Android 常用：sudo apt install openjdk-17-jdk
+
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+# 若用 17：export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+
+javac -version    # 应能输出版本，而不是 command not found
+cd frontend/android && ./gradlew assembleDebug
+```
+
+可将 `JAVA_HOME` 写入 `~/.bashrc` 持久生效。  
+**更省事**：直接用 Android Studio 打开 `frontend/android` 并点 Run，会使用 IDE 内置 JDK，无需手动配 `JAVA_HOME`。
 
 ## 首次构建
 
