@@ -176,7 +176,7 @@ sudo systemctl status openclaw-news-publisher
 
 查看日志：`journalctl -u openclaw-news-publisher -f`
 
-> **workers 说明**：WebSocket 对话（`/api/v1/chat/ws`）在多 worker 下需确保 Gateway 会话粘性或由单 worker 处理；小规模部署可先用 `--workers 1`，或在前置代理层做 WS 粘性。
+> **workers 说明**：WebSocket 对话（`/api/v1/chat/ws`）与内存 `chat_run_store` 在多 worker 下 **不共享状态**；小规模部署建议 `--workers 1`，或后续将 run 状态外置到 Redis/DB。另可在前置代理层做 WS 粘性。
 
 ## 方式三：Nginx 反向代理 + TLS
 
@@ -291,6 +291,8 @@ bash scripts/local/verify-openclaw-databases.sh
 | `OPENCLAW_EXPOSE_OPENAPI` | 生产保持 `false`（默认已关，`/docs` 404） |
 | `OPENCLAW_TRUST_X_FORWARDED_FOR` | 反代后按 `X-Forwarded-For` 限流时设为 `true` |
 | `OPENCLAW_WS_MESSAGES_PER_MINUTE` | WebSocket 单连接 `user_message` 限速（默认 12/分钟） |
+| `OPENCLAW_CHAT_RECV_TIMEOUT_SECONDS` | 对话 Gateway 空闲超时（默认 120 秒） |
+| `OPENCLAW_CHAT_TOTAL_TIMEOUT_SECONDS` | 对话单轮总超时（默认 600 秒） |
 
 `.env` 权限建议：`chmod 600 .env`，仅运行用户可读。Docker 镜像以非 root 用户 `appuser`（uid 10001）运行。
 
@@ -341,6 +343,8 @@ sudo ufw enable
 | 现象 | 排查 |
 |------|------|
 | 首页对话「连接中」 | 检查 Gateway 地址、Nginx WebSocket 配置、`journalctl` 日志 |
+| 切页后回复不完整 | 确认已部署后台 run；`GET /api/v1/chat/runs/active`；见 [portal-chat.md](portal-chat.md) |
+| 重启 app 后对话轮询 404 | `chat_run_store` 为内存态，进行中任务不可恢复 |
 | `healthz/db` 失败 | 核对 DSN、防火墙、PostgreSQL `pg_hba.conf` |
 | 静态页 404 | 确认 `frontend/dist` 存在且 `OPENCLAW_SERVE_SPA=true` |
 | Agent 401 | per-user Key 无效/已撤销；Legacy 关闭时全局 Key 不可用 |
@@ -362,7 +366,7 @@ sudo ufw enable
 - [ ] `frontend/dist` 已构建（Docker 或 `npm run build`）
 - [ ] `curl /healthz` 与 `/healthz/db` 正常
 - [ ] 反向代理 + TLS 已配置
-- [ ] WebSocket 对话可连接
+- [ ] WebSocket 对话可连接；切页后后台生成与轮询正常（见 [portal-chat.md](portal-chat.md)）
 - [ ] OpenClaw Agent 可成功 POST 报告/价格观测
 - [ ] 防火墙仅开放必要端口
 
@@ -370,4 +374,5 @@ sudo ufw enable
 
 - [deployment.md](deployment.md) — 本地开发与快速验证
 - [architecture.md](architecture.md) — 系统架构与数据流
+- [portal-chat.md](portal-chat.md) — 门户对话与后台 run
 - [developer-guide.md](developer-guide.md) — 模块说明与开发规范

@@ -9,14 +9,15 @@ openclaw_news_publisher/
 │   ├── api/v1/
 │   │   ├── openclaw.py      # Agent 入站 API
 │   │   ├── public.py        # 公开 REST + 工作流 + auth
-│   │   └── chat.py          # WebSocket 代理
+│   │   └── chat.py          # WebSocket 代理 + /chat/runs 轮询
 │   ├── core/                # 配置、鉴权（JWT、per-user API Key、QueryContext）
 │   ├── db/                  # 仓储 + public_queries + user_queries
 │   ├── schemas/             # Pydantic 模型
-│   ├── services/            # 业务逻辑
+│   ├── services/            # 业务逻辑（含 chat_run_store、openclaw_chat_bridge）
 │   ├── workers/             # 后台任务
 │   └── utils/               # 格式化、情绪分析
 ├── frontend/                # React SPA (Vite + Tailwind)
+│   └── src/features/chat/   # ChatProvider、ChatPage、pendingRuns
 ├── docs/                    # 人类文档
 ├── scripts/                 # 部署与运维脚本
 ├── tests/                   # pytest
@@ -34,6 +35,7 @@ openclaw_news_publisher/
 | `workers/job_runner.py` | 流水线步骤 |
 | `api/v1/public.py` | 新增公开 API |
 | `frontend/src/pages/` | UI 页面 |
+| `frontend/src/features/chat/` | ChatProvider、ChatPage、pending 轮询 |
 | `frontend/src/lib/api.ts` | 前端 API 类型 |
 
 ## 开发规范
@@ -80,6 +82,8 @@ cd frontend && npm run dev
 
 浏览器访问 `http://localhost:5173`，首次使用请 **注册/登录**。OpenClaw Agent 须在门户 **账户 → API Key 管理** 生成 per-user Key（全局 `dev-openclaw-key` 在 Legacy 关闭后无效）。
 
+**门户对话开发**：Gateway 需在宿主机单独运行；前端 `ChatProvider` 在 `AppShell` 外层维持 WS。行为与 API 见 [portal-chat.md](portal-chat.md)。
+
 ## 多用户与鉴权
 
 | 概念 | 说明 |
@@ -105,6 +109,7 @@ pytest tests/test_prompt_safety.py -v        # 对话违规词过滤
 
 - Swagger UI：`http://localhost:8000/docs`
 - 契约文档：[docs/api/openclaw-intake.md](api/openclaw-intake.md)
+- 门户对话：[docs/portal-chat.md](portal-chat.md)
 
 ## Agent 技能
 

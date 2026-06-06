@@ -24,7 +24,7 @@ flowchart LR
 | 新闻库 | 关键词新闻沉淀与浏览 |
 | 工作流 | 监测创建、联合分析、系统诊断 |
 | 多用户门户 | 注册/登录、JWT、per-user API Key、数据隔离 |
-| OpenClaw 对话 | 门户 WebSocket 聊天（需 Gateway）；违规词过滤 |
+| OpenClaw 对话 | 门户 WebSocket 聊天（需 Gateway）；后台生成 + 轮询恢复；超时/取消/切页不断线 |
 
 完整 API 见 [docs/api/openclaw-intake.md](docs/api/openclaw-intake.md) 与 `/docs`（Swagger）。
 
@@ -81,6 +81,9 @@ open http://localhost:5173
 | `OPENCLAW_MONITORING_DATABASE_URL` | 价格监测库 |
 | `OPENCLAW_NEWS_DATABASE_URL` | 新闻库 |
 | `OPENCLAW_OPENCLAW_WS_URL` | OpenClaw Gateway WebSocket |
+| `OPENCLAW_CHAT_RECV_TIMEOUT_SECONDS` | 对话单轮 Gateway 空闲超时（秒，默认 120） |
+| `OPENCLAW_CHAT_TOTAL_TIMEOUT_SECONDS` | 对话单轮总时长上限（秒，默认 600） |
+| `OPENCLAW_WS_MESSAGES_PER_MINUTE` | 门户聊天 WS 发消息限速（默认 12/分钟） |
 | `OPENCLAW_SERVE_SPA` | 是否挂载前端静态资源（默认 true） |
 
 完整列表：[`.env.example`](.env.example)
@@ -102,6 +105,7 @@ skills/           # Agent 技能（权威路径）
 | 文档 | 内容 |
 |------|------|
 | [docs/architecture.md](docs/architecture.md) | 系统架构、数据流、三库 |
+| [docs/portal-chat.md](docs/portal-chat.md) | 门户对话、后台生成、轮询 API |
 | [docs/deployment.md](docs/deployment.md) | 本地开发与快速验证 |
 | [docs/server-deployment.md](docs/server-deployment.md) | 服务器 / Docker / Nginx / systemd 生产部署 |
 | [docs/developer-guide.md](docs/developer-guide.md) | 模块说明、开发规范 |

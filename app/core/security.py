@@ -163,20 +163,54 @@ def is_websocket_authorized(
     bearer_token: str | None = None,
     refresh_cookie: str | None = None,
 ) -> bool:
+    return resolve_websocket_user(
+        header_api_key=header_api_key,
+        portal_cookie=portal_cookie,
+        bearer_token=bearer_token,
+        refresh_cookie=refresh_cookie,
+    ) is not None
+
+
+def resolve_websocket_user(
+    *,
+    header_api_key: str | None,
+    portal_cookie: str | None,
+    bearer_token: str | None = None,
+    refresh_cookie: str | None = None,
+) -> User | None:
     if bearer_token:
         payload = decode_access_token(bearer_token)
-        if payload and user_from_access_payload(payload):
-            return True
+        if payload and payload.get("type") == "access":
+            user = user_from_access_payload(payload)
+            if user and user.status == "active":
+                return user
     if refresh_cookie and settings.database_url:
         from app.db import user_queries as uq
 
-        if uq.get_session_user(refresh_cookie):
-            return True
-    if header_api_key and resolve_user_from_api_key(header_api_key):
-        return True
+        user = uq.get_session_user(refresh_cookie)
+        if user and user.status == "active":
+            return user
+    if header_api_key:
+        user = resolve_user_from_api_key(header_api_key)
+        if user and user.status == "active":
+            return user
     if is_valid_portal_session(portal_cookie):
-        return True
-    return False
+        ctx = legacy_admin_context()
+        from app.db import user_queries as uq
+
+        user = uq.get_user_by_id(ctx.user_id)
+        if user and user.status == "active":
+            return user
+        return User(
+            id=ctx.user_id,
+            email="admin@localhost",
+            username="admin",
+            role=ctx.role,
+            status="active",
+            created_at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc),
+            updated_at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc),
+        )
+    return None
 
 
 def verify_optional_signature(payload_bytes: bytes, x_signature: str | None) -> None:

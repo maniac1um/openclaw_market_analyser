@@ -4,6 +4,7 @@ import { Toaster } from 'sonner'
 import { AuthProvider } from './lib/AuthContext'
 import { ProtectedRoute } from './lib/ProtectedRoute'
 import { AppShell } from './components/layout/AppShell'
+import { ChatProvider } from './features/chat/ChatProvider'
 import { HomePage } from './pages/HomePage'
 import { ReportsPage } from './pages/ReportsPage'
 import { NewsPage } from './pages/NewsPage'
@@ -29,7 +30,7 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route element={<ProtectedRoute />}>
-              <Route element={<AppShell />}>
+              <Route element={<ChatProvider><AppShell /></ChatProvider>}>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/reports" element={<ReportsPage />} />
                 <Route path="/topic-analysis" element={<Navigate to="/reports" replace />} />

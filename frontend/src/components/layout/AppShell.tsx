@@ -1,8 +1,9 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { LogOut, Moon, Sun, FileText, User, Settings } from 'lucide-react'
+import { Loader2, LogOut, Moon, Sun, FileText, User, Settings } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { cn } from '../../lib/utils'
 import { useAuth } from '../../lib/AuthContext'
+import { useChat } from '../../features/chat/ChatProvider'
 
 const nav = [
   { to: '/', label: '首页' },
@@ -17,7 +18,9 @@ export function AppShell() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
+  const { pendingSessionKeys } = useChat()
   const isChatHome = location.pathname === '/'
+  const chatBusy = pendingSessionKeys.length > 0
   const [dark, setDark] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -115,7 +118,7 @@ export function AppShell() {
                   end={item.to === '/'}
                   className={({ isActive }) =>
                     cn(
-                      'inline-block border-b-2 py-3 transition-colors',
+                      'inline-flex items-center gap-1.5 border-b-2 py-3 transition-colors',
                       isActive
                         ? 'border-[var(--color-accent)] font-medium text-[var(--color-accent)]'
                         : 'border-transparent text-[var(--color-muted)] hover:text-[var(--color-text)]',
@@ -123,6 +126,12 @@ export function AppShell() {
                   }
                 >
                   {item.label}
+                  {item.to === '/' && chatBusy ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-accent)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-accent)]">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      生成中
+                    </span>
+                  ) : null}
                 </NavLink>
               </li>
             ))}

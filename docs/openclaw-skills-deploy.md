@@ -266,7 +266,7 @@ export API_KEY="<门户账户页生成的 Key>"
 | **门户 `/` 聊天** | Gateway 已加载 Skill | ⚠️ 仅当 Gateway 配置 HTTP 工具；默认 WS 不内置 API |
 | **cron / 外采脚本** | Gateway 或独立 Agent | ✅ `curl` + `X-Api-Key` |
 
-门户写操作（建监测、发报告）若聊天中未真正执行，见 [`skills/_shared/portal-chat-routing.md`](../skills/_shared/portal-chat-routing.md)。
+门户写操作（建监测、发报告）若聊天中未真正执行，见 [`skills/_shared/portal-chat-routing.md`](../skills/_shared/portal-chat-routing.md)。对话后台生成与轮询见 [portal-chat.md](../docs/portal-chat.md)。
 
 ---
 

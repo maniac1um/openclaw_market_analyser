@@ -1,15 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Loader2, MessageSquarePlus, PanelLeftClose, PanelLeft, Send, Square, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { checkOutgoingPrompt } from '../../lib/promptSafety'
 import { cn } from '../../lib/utils'
-import { useChatSessions } from './useChatSessions'
-import { CHAT_CLIENT_WATCHDOG_MS, type WsIncoming } from './types'
-
-function chatWsUrl(): string {
-  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${proto}//${window.location.host}/api/v1/chat/ws`
-}
+import { useChat } from './ChatProvider'
 
 function MessageBubble({
   side,
@@ -62,190 +55,39 @@ export function ChatPage() {
     createSession,
     deleteSession,
     clearAll,
-    prepareOutgoingMessage,
-    applyAssistantDelta,
-    applyAssistantError,
-  } = useChatSessions()
+    wsReady,
+    isStreaming,
+    streamStatus,
+    pendingSessionKeys,
+    isSessionPending,
+    sendUserMessage,
+    cancelStreaming,
+  } = useChat()
 
   const [input, setInput] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [wsReady, setWsReady] = useState(false)
-  const [isStreaming, setIsStreaming] = useState(false)
-  const [streamStatus, setStreamStatus] = useState<'idle' | 'processing' | 'streaming'>('idle')
-
-  const wsRef = useRef<WebSocket | null>(null)
-  const busySessionKey = useRef<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const watchdogTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const active = state.sessions[state.activeSessionKey]
-
-  const clearWatchdog = useCallback(() => {
-    if (watchdogTimerRef.current) {
-      clearTimeout(watchdogTimerRef.current)
-      watchdogTimerRef.current = null
-    }
-  }, [])
-
-  const finishStreaming = useCallback(() => {
-    clearWatchdog()
-    setIsStreaming(false)
-    setStreamStatus('idle')
-    busySessionKey.current = null
-    textareaRef.current?.focus()
-  }, [clearWatchdog])
-
-  const handleIncoming = useCallback(
-    (data: WsIncoming) => {
-      if (!data?.sessionKey) return
-      const key = data.sessionKey
-
-      if (data.type === 'assistant_delta') {
-        if (data.status === 'processing') {
-          setStreamStatus('processing')
-        } else if (!data.done) {
-          setStreamStatus('streaming')
-        }
-        applyAssistantDelta(key, data.text ?? '', Boolean(data.done))
-        if (data.done) {
-          if (data.status === 'cancelled') {
-            toast.message('已停止生成')
-          } else if (data.status === 'timeout') {
-            toast.error('响应超时')
-          }
-          if (key === busySessionKey.current) {
-            finishStreaming()
-          }
-        }
-      } else if (data.type === 'assistant_error') {
-        applyAssistantError(key, data.error || '未知错误')
-        if (key === busySessionKey.current) {
-          finishStreaming()
-        }
-      }
-    },
-    [applyAssistantDelta, applyAssistantError, finishStreaming],
-  )
-
-  const abortStreamingLocally = useCallback(
-    (message: string) => {
-      const key = busySessionKey.current
-      if (key) {
-        applyAssistantError(key, message)
-      }
-      finishStreaming()
-    },
-    [applyAssistantError, finishStreaming],
-  )
+  const activePending = isSessionPending(state.activeSessionKey)
+  const hasPendingWork = pendingSessionKeys.length > 0
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [active?.messages, state.activeSessionKey, isStreaming])
-
-  useEffect(() => {
-    let cancelled = false
-    let reconnectTimer: ReturnType<typeof setTimeout> | undefined
-
-    const connect = () => {
-      if (cancelled) return
-      const ws = new WebSocket(chatWsUrl())
-      wsRef.current = ws
-      ws.onopen = () => setWsReady(true)
-      ws.onclose = () => {
-        setWsReady(false)
-        if (busySessionKey.current) {
-          abortStreamingLocally('连接已断开，当前回复已中断。请检查网络后重试。')
-          toast.error('对话连接已断开')
-        }
-        if (!cancelled) reconnectTimer = setTimeout(connect, 2000)
-      }
-      ws.onerror = () => setWsReady(false)
-      ws.onmessage = (event) => {
-        let data: WsIncoming | null = null
-        try {
-          data = JSON.parse(event.data)
-        } catch {
-          return
-        }
-        if (data) handleIncoming(data)
-      }
-    }
-    connect()
-    return () => {
-      cancelled = true
-      if (reconnectTimer) clearTimeout(reconnectTimer)
-      wsRef.current?.close()
-      wsRef.current = null
-      clearWatchdog()
-    }
-  }, [abortStreamingLocally, clearWatchdog, handleIncoming])
-
-  useEffect(() => {
-    if (!isStreaming) {
-      clearWatchdog()
-      return
-    }
-    watchdogTimerRef.current = setTimeout(() => {
-      if (!busySessionKey.current) return
-      wsRef.current?.send(
-        JSON.stringify({
-          type: 'cancel_message',
-          sessionKey: busySessionKey.current,
-        }),
-      )
-      abortStreamingLocally('客户端等待超时，已自动停止。请缩短问题后重试。')
-      toast.error('等待超时，已自动停止')
-    }, CHAT_CLIENT_WATCHDOG_MS)
-    return clearWatchdog
-  }, [abortStreamingLocally, clearWatchdog, isStreaming])
+  }, [active?.messages, state.activeSessionKey, activePending])
 
   const sendMessage = () => {
     const text = input.trim()
-    if (!text || isStreaming) return
-
-    const safety = checkOutgoingPrompt(text)
-    if (!safety.ok) {
-      toast.error(safety.message)
-      return
-    }
-
-    const ws = wsRef.current
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      toast.error('连接未就绪，请稍后重试')
-      return
-    }
-
-    const prepared = prepareOutgoingMessage(text)
-    if (!prepared) return
-
-    setIsStreaming(true)
-    setStreamStatus('processing')
-    busySessionKey.current = prepared.sessionKey
-    setInput('')
-    ws.send(
-      JSON.stringify({
-        type: 'user_message',
-        text,
-        sessionKey: prepared.sessionKey,
-      }),
-    )
-  }
-
-  const cancelStreaming = () => {
-    const key = busySessionKey.current
-    if (!key || !isStreaming) return
-    const ws = wsRef.current
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'cancel_message', sessionKey: key }))
-    } else {
-      abortStreamingLocally('连接不可用，已本地停止等待。')
+    if (!text) return
+    if (sendUserMessage(text)) {
+      setInput('')
     }
   }
 
   const handleDelete = (id: string) => {
-    if (isStreaming) {
-      toast.warning('请等待当前回复完成，或点击「停止生成」')
+    if (isSessionPending(id)) {
+      toast.warning('该对话仍在后台生成，请等待完成或停止生成')
       return
     }
     if (!confirm('删除这条对话？')) return
@@ -254,11 +96,13 @@ export function ChatPage() {
 
   const connectionLabel = !wsReady
     ? '连接中…'
-    : isStreaming
+    : activePending
       ? streamStatus === 'processing'
         ? '生成中…（连接 Gateway）'
         : '生成中…'
-      : '已连接'
+      : hasPendingWork
+        ? '后台生成中'
+        : '已连接'
 
   return (
     <div className="flex h-full min-h-0 flex-1 overflow-hidden bg-[var(--color-bg)]">
@@ -297,7 +141,12 @@ export function ChatPage() {
                   onClick={() => selectSession(id)}
                   className="w-full px-3 py-2.5 text-left"
                 >
-                  <p className="truncate text-sm font-medium text-[var(--color-text)]">{s.title}</p>
+                  <p className="truncate text-sm font-medium text-[var(--color-text)]">
+                    {s.title}
+                    {isSessionPending(id) ? (
+                      <span className="ml-1.5 text-[10px] font-normal text-[var(--color-accent)]">生成中</span>
+                    ) : null}
+                  </p>
                   <p className="mt-0.5 truncate text-xs text-[var(--color-muted)]">{preview}</p>
                 </button>
                 <button
@@ -316,8 +165,8 @@ export function ChatPage() {
           <button
             type="button"
             onClick={() => {
-              if (isStreaming) {
-                toast.warning('请等待当前回复完成，或点击「停止生成」')
+              if (hasPendingWork) {
+                toast.warning('仍有后台生成任务，请等待完成或停止生成')
                 return
               }
               if (confirm('清空所有本地对话记录？')) clearAll()
@@ -343,7 +192,7 @@ export function ChatPage() {
             <span className="text-sm font-medium">{active?.title || 'OpenClaw'}</span>
           </div>
           <div className="flex items-center gap-2">
-            {isStreaming ? (
+            {activePending ? (
               <button
                 type="button"
                 onClick={cancelStreaming}
@@ -356,12 +205,12 @@ export function ChatPage() {
             <span
               className={cn(
                 'inline-flex items-center gap-1.5 text-xs',
-                wsReady && !isStreaming && 'text-green-600',
-                isStreaming && 'text-[var(--color-accent)]',
+                wsReady && !activePending && !hasPendingWork && 'text-green-600',
+                (activePending || hasPendingWork) && 'text-[var(--color-accent)]',
                 !wsReady && 'text-[var(--color-muted)]',
               )}
             >
-              {isStreaming ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              {activePending || hasPendingWork ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
               {connectionLabel}
             </span>
           </div>
@@ -373,15 +222,13 @@ export function ChatPage() {
               <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
                 <h2 className="text-2xl font-semibold tracking-tight">有什么可以帮你？</h2>
                 <p className="mt-2 max-w-md text-sm text-[var(--color-muted)]">
-                  向 OpenClaw 提问市场分析、关键词追踪或任意研究任务。对话会自动保存在左侧列表。
+                  向 OpenClaw 提问市场分析、关键词追踪或任意研究任务。切换页面后回复会在后台继续，回到首页即可查看。
                 </p>
               </div>
             ) : (
               active.messages.map((msg, i) => {
                 const isLastAssistant =
-                  isStreaming &&
-                  msg.side === 'assistant' &&
-                  active.assistantIndex === i
+                  activePending && msg.side === 'assistant' && active.assistantIndex === i
                 return (
                   <MessageBubble
                     key={`${state.activeSessionKey}-${i}`}
@@ -408,15 +255,17 @@ export function ChatPage() {
                   sendMessage()
                 }
               }}
-              disabled={isStreaming}
+              disabled={activePending || isStreaming}
               rows={1}
-              placeholder={isStreaming ? 'OpenClaw 正在生成回复…' : '发送消息给 OpenClaw…'}
+              placeholder={
+                activePending ? 'OpenClaw 正在生成回复…' : '发送消息给 OpenClaw…'
+              }
               className="max-h-40 min-h-[24px] flex-1 resize-none bg-transparent py-2 text-sm outline-none disabled:opacity-60"
             />
             <button
               type="button"
               onClick={sendMessage}
-              disabled={isStreaming || !input.trim()}
+              disabled={activePending || isStreaming || !input.trim()}
               className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--color-text)] text-[var(--color-bg)] transition-opacity disabled:opacity-30"
               aria-label="发送"
             >
@@ -424,9 +273,11 @@ export function ChatPage() {
             </button>
           </div>
           <p className="mx-auto mt-2 max-w-3xl text-center text-xs text-[var(--color-muted)]">
-            {isStreaming
-              ? '生成中可点击右上角「停止生成」。Enter 发送，Shift+Enter 换行。'
-              : 'OpenClaw 回复仅供参考。Enter 发送，Shift+Enter 换行。'}
+            {activePending
+              ? '生成中可切换其他页面；回到首页或等待轮询同步。可点击「停止生成」。'
+              : hasPendingWork
+                ? '其他对话仍在后台生成，回到对应对话或等待完成。'
+                : 'OpenClaw 回复仅供参考。Enter 发送，Shift+Enter 换行。'}
           </p>
         </div>
       </div>

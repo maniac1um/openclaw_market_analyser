@@ -111,6 +111,15 @@ export class ApiError extends Error {
   }
 }
 
+export type ChatRunPayload = {
+  sessionKey: string
+  text?: string
+  done?: boolean
+  status?: string
+  error?: string | null
+  updatedAt?: number
+}
+
 let authHeaderProvider: (() => Record<string, string>) | null = null
 
 export function setAuthHeaderProvider(fn: () => Record<string, string>) {
@@ -188,4 +197,6 @@ export const api = {
     }),
   revokeApiKey: (id: string) =>
     fetchJson(`/api/v1/public/auth/api-keys/${id}`, { method: 'DELETE' }),
+  chatActiveRuns: () => fetchJson<{ runs: ChatRunPayload[] }>('/api/v1/chat/runs/active'),
+  chatRun: (sessionKey: string) => fetchJson<ChatRunPayload>(`/api/v1/chat/runs/${sessionKey}`),
 }
