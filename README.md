@@ -109,6 +109,7 @@ skills/           # Agent 技能（权威路径）
 | [docs/portal-chat.md](docs/portal-chat.md) | 门户对话、后台生成、轮询 API |
 | [docs/deployment.md](docs/deployment.md) | 本地开发与快速验证 |
 | [docs/server-deployment.md](docs/server-deployment.md) | 服务器 / Docker / Nginx / systemd 生产部署 |
+| [docs/android-app.md](docs/android-app.md) | Android 内测 APK（Capacitor，`apk-test` 分支） |
 | [docs/developer-guide.md](docs/developer-guide.md) | 模块说明、开发规范 |
 | [docs/api/openclaw-intake.md](docs/api/openclaw-intake.md) | API 契约 |
 | [docs/multi-user/MULTI_USER_MIGRATION_PLAN.md](docs/multi-user/MULTI_USER_MIGRATION_PLAN.md) | 多用户 SaaS 迁移与实施状态 |

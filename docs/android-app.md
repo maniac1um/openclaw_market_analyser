@@ -1,165 +1,198 @@
-# OpenClaw Android App（Capacitor）
+# OpenClaw Android 内测 APK（Capacitor）
 
-内测用 Android 壳：WebView 加载远程门户 `https://115.120.202.223`，不上架应用商店。
+内测用 Android 壳：WebView 加载远程门户 `https://115.120.202.223`，**不上架应用商店**。在本机（Windows / macOS / Linux）编译 debug APK 后安装到手机验证。
+
+> **勿在云服务器上编译 APK。** 生产机只跑 Docker + Nginx 门户；Android SDK / JDK 体积大且与 Web 部署无关。
+
+## 分支与仓库
+
+| 项 | 说明 |
+|----|------|
+| Git 分支 | **`apk-test`**（Android 工程与 Capacitor 配置） |
+| 门户业务 | **`main`** |
+| 远程仓库 | `git@github.com:maniac1um/openclaw_market_analyser.git` |
+
+```bash
+git clone git@github.com:maniac1um/openclaw_market_analyser.git
+cd openclaw_market_analyser
+git checkout apk-test
+```
 
 ## 架构
 
-- **Capacitor 8** + **Android WebView**
-- `frontend/capacitor.config.ts` 中 `server.url` 指向生产门户
-- 自签 HTTPS：信任 `res/raw/openclaw_server.crt`（与 Nginx `/etc/nginx/ssl/openclaw.crt` 一致）
+```mermaid
+flowchart LR
+  APK[Debug APK] --> WebView[Capacitor WebView]
+  WebView --> HTTPS["https://115.120.202.223"]
+  HTTPS --> Nginx[Nginx + 自签证书]
+  Nginx --> Portal[FastAPI + SPA]
+```
 
-改网页后 **无需重装 APK**（除非修改原生配置或证书）。
+- **Capacitor 8** + **Android WebView**
+- `frontend/capacitor.config.ts` 中 `server.url` 指向生产门户（远程加载，改网页后一般**无需重装 APK**）
+- **appId**：`com.openclaw.portal`
+- **自签 HTTPS**：App 信任 `res/raw/openclaw_server.crt`（与 Nginx `/etc/nginx/ssl/openclaw.crt` 一致）
+
+改网页后无需重装 APK，除非修改原生配置或服务器证书。
 
 ## 环境要求
 
-在 **本机**（Windows / macOS / Linux）安装：
+| 依赖 | 说明 |
+|------|------|
+| Git + Node.js 22+ | 与 `frontend/` 一致 |
+| [Android Studio](https://developer.android.com/studio) | **推荐**；含 SDK、Platform Tools、内置 JDK |
+| JDK 17 或 21 **完整版** | 须含 `javac`；命令行构建时必需 |
 
-- [Android Studio](https://developer.android.com/studio)（含 SDK、Platform Tools；**推荐**，自带 JDK）
-- Node.js 22+（与 `frontend/` 一致）
-- **JDK 17 或 21 完整版**（须含 `javac`，不能只有 JRE）
+### Android SDK 组件
 
-> 服务器上通常只跑 Web 服务；APK 在开发机构建。
-
-### Ubuntu / Debian 安装 JDK
-
-若 `./gradlew assembleDebug` 报错：
-
-```text
-does not provide the required capabilities: [JAVA_COMPILER]
-```
-
-说明当前 `JAVA_HOME` 指向的 Java **没有编译器**。请安装完整 JDK：
-
-```bash
-sudo apt update
-sudo apt install openjdk-21-jdk
-# 或 Android 常用：sudo apt install openjdk-17-jdk
-
-export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-# 若用 17：export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-
-javac -version    # 应能输出版本，而不是 command not found
-cd frontend/android && ./gradlew assembleDebug
-```
-
-可将 `JAVA_HOME` 写入 `~/.bashrc` 持久生效。  
-**更省事**：直接用 Android Studio 打开 `frontend/android` 并点 Run，会使用 IDE 内置 JDK，无需手动配 `JAVA_HOME`。
-
-### Android SDK 路径（`SDK location not found`）
-
-若报错：
-
-```text
-SDK location not found. Define a valid SDK location with an ANDROID_HOME
-environment variable or by setting the sdk.dir path in local.properties
-```
-
-说明 **尚未安装 Android SDK**，或未告诉 Gradle SDK 在哪。JDK 17/21  alone 不够，还必须装 Android Studio（或 Command-line Tools）里的 SDK。
-
-**步骤 1 — 安装 Android Studio**（若还没有）
-
-从 https://developer.android.com/studio 安装，首次启动完成向导。SDK 默认在：
-
-```text
-~/Android/Sdk
-```
-
-在 **Settings → Languages & Frameworks → Android SDK** 中确认已安装：
+Android Studio → **Settings → Android SDK**，确认已安装：
 
 - **Android 16 (API 36)** — 与工程 `compileSdkVersion = 36` 一致
-- **Android SDK Build-Tools**
+- **Android SDK Build-Tools**（35.0.0 或更高）
 - **Android SDK Platform-Tools**（含 `adb`）
 
-**步骤 2 — 配置 SDK 路径（任选一种）**
+默认 SDK 路径：
 
-方式 A — `local.properties`（推荐，仅本机）：
+| 系统 | 路径 |
+|------|------|
+| Linux / macOS | `~/Android/Sdk` |
+| Windows | `C:\Users\<用户名>\AppData\Local\Android\Sdk` |
+
+## 配置 SDK 路径（每台机器一次）
+
+`local.properties` 已在 `.gitignore`，**不会提交**。
 
 ```bash
 cd frontend/android
-cp local.properties.example local.properties
-# 编辑 sdk.dir，例如：
 echo "sdk.dir=$HOME/Android/Sdk" > local.properties
 ```
 
-方式 B — 环境变量：
+Windows 示例：
+
+```properties
+sdk.dir=C\:\\Users\\YourName\\AppData\\Local\\Android\\Sdk
+```
+
+或使用环境变量：
 
 ```bash
 export ANDROID_HOME=$HOME/Android/Sdk
 export PATH=$PATH:$ANDROID_HOME/platform-tools
 ```
 
-写入 `~/.bashrc` 后 `source ~/.bashrc`。
+## 编译 debug APK
 
-**步骤 3 — 验证并重试**
-
-```bash
-test -d "$HOME/Android/Sdk/platform-tools" && echo "SDK OK"
-cd ~/openclaw_market_analyser/frontend/android
-./gradlew assembleDebug
-```
-
-`local.properties` 已在 `.gitignore` 中，**不会提交到 Git**，每台开发机需各自配置一次。
-
-## 首次构建
+### 方式 A — 命令行（完整流程）
 
 ```bash
 cd frontend
 npm install
 npm run build
 npx cap sync android
-```
-
-用 Android Studio 打开 **`frontend/android`**，或命令行：
-
-```bash
-cd frontend/android
+cd android
 ./gradlew assembleDebug
 ```
 
-Debug APK 路径：
+**产物路径：**
 
-`frontend/android/app/build/outputs/apk/debug/app-debug.apk`
-
-## 安装到真机
-
-```bash
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+```text
+frontend/android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-或把 APK 传到手机安装（需允许「未知来源」）。
-
-## 验证清单
-
-1. 打开 App → 显示登录页  
-2. 登录 / 注册  
-3. 首页 OpenClaw 对话（WebSocket）  
-4. 专题分析：列表 → 详情 → 返回  
-
-若白屏，在 Logcat 过滤 `SSLHandshakeException` — 多为证书未信任或 IP 变更后未更新 `openclaw_server.crt`。
-
-## 更新服务器证书
-
-Nginx 证书轮换后：
-
-```bash
-openssl x509 -in /etc/nginx/ssl/openclaw.crt -outform PEM \
-  -out frontend/android/app/src/main/res/raw/openclaw_server.crt
-cd frontend && npx cap sync android
-# 重新 assembleDebug
-```
-
-## 常用命令
+`frontend/package.json` 快捷脚本（在 `frontend/` 目录）：
 
 | 命令 | 说明 |
 |------|------|
-| `npm run cap:sync` | 同步 Capacitor 配置到 Android |
+| `npm run cap:sync` | 同步 Capacitor 到 Android |
 | `npm run cap:open` | 用 Android Studio 打开工程 |
-| `npm run android:debug` | 命令行打 debug APK |
+| `npm run android:debug` | `./gradlew assembleDebug` |
 
-## 分支
+### 方式 B — Android Studio（最省心）
 
-Android 相关开发在 **`apk-test`** 分支；门户业务仍在 **`main`**。
+1. 安装 Android Studio
+2. **Open** → 选择仓库内 `frontend/android`
+3. 等待 Gradle Sync（自动生成 `local.properties`）
+4. **Build → Build Bundle(s) / APK(s) → Build APK(s)**
+
+无需手动配置 `JAVA_HOME` / `sdk.dir`。
+
+## 安装到手机
+
+**USB + adb：**
+
+```bash
+adb install -r frontend/android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+或把 APK 传到手机，开启「允许未知来源」后直接安装。
+
+## 真机验证清单
+
+1. 打开 App → 显示登录页（远程 `https://115.120.202.223`）
+2. 登录 / 注册
+3. 首页 OpenClaw 对话（WebSocket `wss://`）
+4. 专题分析：列表 → 详情 → 返回
+
+若 **白屏**：Logcat 过滤 `SSLHandshakeException` — 多为证书与 `openclaw_server.crt` 不一致，或 IP 变更未更新证书。
+
+## 常见错误
+
+### `does not provide the required capabilities: [JAVA_COMPILER]`
+
+只装了 JRE 或未装 JDK。安装完整 JDK 并设置 `JAVA_HOME`：
+
+```bash
+sudo apt update
+sudo apt install openjdk-17-jdk   # 或 openjdk-21-jdk
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+javac -version
+```
+
+### `SDK location not found`
+
+未安装 Android SDK，或未配置 `sdk.dir`。见上文「配置 SDK 路径」。
+
+### `Failed to install ... platforms;android-36`
+
+SDK Manager 未安装 **Android 16 (API 36)**。
+
+### `WARNING: Using flatDir should be avoided`
+
+Capacitor 常见 Gradle 提示，**可忽略**，不影响 APK。
+
+## 更新服务器证书
+
+Nginx 证书轮换后，需更新 App 内嵌证书并**重新编译 APK**：
+
+```bash
+# 在服务器上导出（路径按实际 Nginx 配置）
+openssl x509 -in /etc/nginx/ssl/openclaw.crt -outform PEM \
+  -out frontend/android/app/src/main/res/raw/openclaw_server.crt
+
+cd frontend && npx cap sync android
+cd android && ./gradlew assembleDebug
+```
+
+## 相关文件
+
+| 路径 | 说明 |
+|------|------|
+| `frontend/capacitor.config.ts` | 远程 URL、`appId` |
+| `frontend/android/` | Android 工程 |
+| `frontend/android/local.properties.example` | SDK 路径模板 |
+| `frontend/android/app/src/main/res/xml/network_security_config.xml` | 自签证书信任策略 |
+| `frontend/android/app/src/main/res/raw/openclaw_server.crt` | 服务器公钥证书 |
 
 ## 安全说明
 
 `network_security_config.xml` 仅信任 OpenClaw 服务器自签证书，**仅用于内测 debug 包**。正式对外分发应使用 Let's Encrypt 等公网可信证书，并移除 debug 专用配置。
+
+## 服务器侧说明
+
+生产服务器（`115.120.202.223`）职责：
+
+- Docker 运行 FastAPI + SPA
+- Nginx 443 反代与 TLS
+- **不在此机安装 Android SDK / JDK 用于打 APK**
+
+Web 门户部署见 [server-deployment.md](server-deployment.md)。

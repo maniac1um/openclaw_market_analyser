@@ -1,6 +1,8 @@
 # 部署指南
 
 > **生产 / 云服务器部署**（Docker、systemd、Nginx、TLS、防火墙）见 **[server-deployment.md](server-deployment.md)**。本文档侧重本地开发与快速验证。
+>
+> **Android 内测 APK**（Capacitor，本机构建）：见 **[android-app.md](android-app.md)**（`apk-test` 分支）。
 
 ## 本地开发（推荐）
 

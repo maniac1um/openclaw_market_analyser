@@ -14,6 +14,8 @@ flowchart TB
 
 推荐形态：**单体部署** — 预构建 React SPA 由 FastAPI 静态挂载，单进程监听 `8000`，前置反向代理处理 TLS 与 WebSocket 升级。
 
+> **Android 内测 APK** 请在开发机编译，勿在云服务器安装 Android SDK。见 [android-app.md](android-app.md)。
+
 ## 前置条件
 
 | 项目 | 要求 |
@@ -373,6 +375,7 @@ sudo ufw enable
 ## 相关文档
 
 - [deployment.md](deployment.md) — 本地开发与快速验证
+- [android-app.md](android-app.md) — Android 内测 APK（Capacitor，本机构建）
 - [architecture.md](architecture.md) — 系统架构与数据流
 - [portal-chat.md](portal-chat.md) — 门户对话与后台 run
 - [developer-guide.md](developer-guide.md) — 模块说明与开发规范

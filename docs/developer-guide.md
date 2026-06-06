@@ -17,6 +17,7 @@ openclaw_news_publisher/
 │   ├── workers/             # 后台任务
 │   └── utils/               # 格式化、情绪分析
 ├── frontend/                # React SPA (Vite + Tailwind)
+│   ├── android/             # Capacitor Android 工程（apk-test 分支）
 │   └── src/features/chat/   # ChatProvider、ChatPage、pendingRuns
 ├── docs/                    # 人类文档
 ├── scripts/                 # 部署与运维脚本
@@ -53,6 +54,7 @@ openclaw_news_publisher/
 - 数据获取：TanStack Query
 - 路由：React Router v6
 - 构建：`cd frontend && npm run build`
+- Android 内测 APK（Capacitor）：见 [android-app.md](android-app.md)，在 `apk-test` 分支、`frontend/android/`
 
 ### 常见任务
 
