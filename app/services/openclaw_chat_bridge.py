@@ -41,9 +41,11 @@ class GatewayConnectContext:
 
 
 def build_gateway_session_key(*, agent_id: str, portal_user_id: str, client_session_key: str) -> str:
-    """Namespaced session key prevents client from hijacking admin agent sessions."""
+    """Build Gateway sessionKey: agent:<agentId>:<client_uuid> (required by OpenClaw Gateway)."""
     safe_client = (client_session_key or "").strip()
-    return f"{agent_id}:{portal_user_id}:{safe_client}"
+    # portal_user_id retained for API stability; isolation is enforced via agent_id + device creds.
+    _ = portal_user_id
+    return f"agent:{agent_id}:{safe_client}"
 
 
 def resolve_gateway_connect_context(*, portal_user_id: str, portal_role: str) -> GatewayConnectContext:
@@ -237,8 +239,9 @@ async def stream_openclaw_reply(
                 partial_text=buffer,
             )
 
-    # Gateway emits sessionKey like agent:<agentId>:<our_session_key>
-    session_key_suffix = ":" + session_key
+    # Gateway echoes the same sessionKey we sent (agent:<agentId>:<client_uuid>).
+    def _session_key_matches(emitted: str) -> bool:
+        return emitted == session_key or emitted.endswith(":" + session_key.split(":")[-1])
 
     display_name = (
         "openclaw-news-publisher-portal"
@@ -349,7 +352,7 @@ async def stream_openclaw_reply(
             emitted_session_key = payload.get("sessionKey")
             if not isinstance(emitted_session_key, str):
                 continue
-            if not emitted_session_key.endswith(session_key_suffix):
+            if not _session_key_matches(emitted_session_key):
                 continue
 
             state = payload.get("state")

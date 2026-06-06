@@ -88,7 +88,7 @@ News Publisher 按门户角色选择 Gateway state 目录：
 
 | 门户角色 | 容器路径 / 环境变量 | 用途 |
 |----------|---------------------|------|
-| USER | `OPENCLAW_GATEWAY_PORTAL_STATE_DIR` → `/openclaw-portal-state` | scopes 仅 `operator.read` |
+| USER | `OPENCLAW_GATEWAY_PORTAL_STATE_DIR` → `/openclaw-portal-state` | scopes：`operator.read` + `operator.write`（**不含** admin/pairing） |
 | ADMIN | `OPENCLAW_GATEWAY_STATE_DIR` → `/openclaw-state` | 完整 operator scopes |
 
 ### 创建 portal state 目录（宿主机）
@@ -106,8 +106,8 @@ from pathlib import Path
 p = Path("openclaw-portal-state/devices/paired.json")
 data = json.loads(p.read_text())
 for entry in data.values():
-    entry["scopes"] = ["operator.read"]
-    entry["approvedScopes"] = ["operator.read"]
+        entry["scopes"] = ["operator.read", "operator.write"]
+        entry["approvedScopes"] = ["operator.read", "operator.write"]
     if "tokens" in entry and "operator" in entry["tokens"]:
         entry["tokens"]["operator"]["scopes"] = ["operator.read"]
     entry["displayName"] = "openclaw-news-publisher-portal"

@@ -53,7 +53,7 @@ def test_build_gateway_session_key_namespaces_by_agent_and_user() -> None:
         portal_user_id="11111111-1111-1111-1111-111111111111",
         client_session_key="22222222-2222-2222-2222-222222222222",
     )
-    assert key.startswith("portal-readonly:11111111-1111-1111-1111-111111111111:")
+    assert key == "agent:portal-readonly:22222222-2222-2222-2222-222222222222"
 
 
 def test_user_permission_blocks_shell_commands() -> None:
@@ -166,7 +166,7 @@ def test_user_chat_uses_portal_agent_and_context(
     call_kwargs = mock_stream.call_args.kwargs
     assert call_kwargs["connect_ctx"].agent_id == settings.gateway_portal_agent_id
     assert "portal-readonly" in call_kwargs["session_key"]
-    assert portal_user.id in call_kwargs["session_key"]
+    assert call_kwargs["session_key"].startswith("agent:portal-readonly:")
     assert "role=USER" in call_kwargs["user_text"]
 
 
