@@ -1,8 +1,8 @@
 # 部署指南
 
-> **生产 / 云服务器部署**（Docker、systemd、Nginx、TLS、防火墙）见 **[server-deployment.md](server-deployment.md)**。本文档侧重本地开发与快速验证。
+> **生产 / 云服务器部署**（Docker、systemd、Nginx、TLS、防火墙）见 **[production.md](production.md)**。本文档侧重本地开发与快速验证。
 >
-> **Android 内测 APK**（Capacitor，本机构建）：见 **[android-app.md](android-app.md)**（`apk-test` 分支）。
+> **Android 内测 APK**（Capacitor，本机构建）：见 **[android-app.md](../mobile/android-app.md)**（`apk-test` 分支）。
 
 ## 本地开发（推荐）
 
@@ -47,7 +47,7 @@ curl http://127.0.0.1:8000/healthz/db
 
 ### 5. 门户对话与 Gateway 隔离
 
-生产环境须配置双 Agent 与 portal device，否则 USER 可能获得 Gateway 管理员能力。完整步骤见 **[security/GATEWAY_ISOLATION.md](security/GATEWAY_ISOLATION.md)**。
+生产环境须配置双 Agent 与 portal device，否则 USER 可能获得 Gateway 管理员能力。完整步骤见 **[gateway-isolation.md](../security/gateway-isolation.md)**。
 
 ## 生产构建（单体部署）
 
@@ -105,7 +105,7 @@ docker compose up app -d
 
 裸机脚本会：创建 venv、安装依赖、生成 `.env`、启动 uvicorn，**需自行安装 PostgreSQL**。
 
-> **OpenClaw Gateway**（`ws://127.0.0.1:18789`）不在本仓库内，对话功能需在宿主机另行启动 Gateway；Docker 部署时应用经 `host.docker.internal` 访问宿主机 Gateway。将仓库根目录 `skills/` 挂载到 Gateway 见 [openclaw-skills-deploy.md](openclaw-skills-deploy.md)。
+> **OpenClaw Gateway**（`ws://127.0.0.1:18789`）不在本仓库内，对话功能需在宿主机另行启动 Gateway；Docker 部署时应用经 `host.docker.internal` 访问宿主机 Gateway。将仓库根目录 `skills/` 挂载到 Gateway 见 [openclaw-skills-gateway.md](openclaw-skills-gateway.md)。
 
 ## PostgreSQL 三库
 
@@ -136,7 +136,7 @@ SQL
 
 ## 生产环境
 
-完整步骤（systemd、Nginx/Caddy、TLS、发布清单）见 **[server-deployment.md](server-deployment.md)**。
+完整步骤（systemd、Nginx/Caddy、TLS、发布清单）见 **[production.md](production.md)**。
 
 ## 环境变量完整列表
 

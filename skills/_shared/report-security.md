@@ -213,4 +213,4 @@ Agent 须在 POST 前对 **每一个** `items[].url` 执行相同规则。
 - [`report-schema.md`](report-schema.md)
 - [`ownership-policy.md`](ownership-policy.md)
 - Skill：`openclaw-report-security`
-- `docs/security/SECURITY_HARDENING_PLAN.md`
+- `docs/reports/security/hardening-plan-2026-06-05.md`

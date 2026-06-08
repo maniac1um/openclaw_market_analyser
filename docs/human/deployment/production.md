@@ -1,6 +1,6 @@
 # 服务器部署指南
 
-本文档面向 **Linux 云主机 / 内网服务器 / 生产环境**，与 [deployment.md](deployment.md) 中的本地开发说明互补。假设你已有可 SSH 访问的服务器，并自行管理 PostgreSQL（本仓库不捆绑数据库安装）。
+本文档面向 **Linux 云主机 / 内网服务器 / 生产环境**，与 [local.md](local.md) 中的本地开发说明互补。假设你已有可 SSH 访问的服务器，并自行管理 PostgreSQL（本仓库不捆绑数据库安装）。
 
 ## 部署架构概览
 
@@ -14,7 +14,7 @@ flowchart TB
 
 推荐形态：**单体部署** — 预构建 React SPA 由 FastAPI 静态挂载，单进程监听 `8000`，前置反向代理处理 TLS 与 WebSocket 升级。
 
-> **Android 内测 APK** 请在开发机编译，勿在云服务器安装 Android SDK。见 [android-app.md](android-app.md)。
+> **Android 内测 APK** 请在开发机编译，勿在云服务器安装 Android SDK。见 [android-app.md](../mobile/android-app.md)。
 
 ## 前置条件
 
@@ -61,7 +61,7 @@ OPENCLAW_CORS_ORIGINS=          # 单体部署可留空
 OPENCLAW_SERVE_SPA=true
 OPENCLAW_OPENCLAW_WS_URL=ws://127.0.0.1:18789/ws
 OPENCLAW_TRUST_X_FORWARDED_FOR=true   # 仅当反代可信且需按真实 IP 限流时
-# Gateway 权限隔离（P0）— 见 docs/security/GATEWAY_ISOLATION.md
+# Gateway 权限隔离（P0）— 见 docs/human/security/gateway-isolation.md
 OPENCLAW_GATEWAY_STATE_DIR=/opt/openclaw-admin-state
 OPENCLAW_GATEWAY_PORTAL_STATE_DIR=/opt/openclaw-portal-state
 OPENCLAW_GATEWAY_PORTAL_AGENT_ID=portal-readonly
@@ -92,7 +92,7 @@ curl -s http://127.0.0.1:8000/healthz/db
 
 浏览器访问 `http://<服务器IP>:8000/` 应看到 SPA 首页（对话界面）。
 
-**Gateway 隔离验收**（P0，详见 [security/GATEWAY_ISOLATION.md](security/GATEWAY_ISOLATION.md)）：
+**Gateway 隔离验收**（P0，详见 [../security/gateway-isolation.md](../security/gateway-isolation.md)）：
 
 ```bash
 # Gateway 仅监听回环（在 Gateway 宿主机执行）
@@ -283,7 +283,7 @@ CREATE DATABASE openclaw_news OWNER openclaw_news;
 SQL
 ```
 
-报告主库需预建 `reports` 表，监测库与新闻库表由服务首次访问时自动创建。建表 SQL 见 [deployment.md#postgresql-三库](deployment.md#postgresql-三库)。
+报告主库需预建 `reports` 表，监测库与新闻库表由服务首次访问时自动创建。建表 SQL 见 [local.md#postgresql-三库](local.md#postgresql-三库)。
 
 连通性检查（在应用目录）：
 
@@ -328,9 +328,9 @@ bash scripts/local/verify-openclaw-databases.sh
 - **Public 读**：`GET /api/v1/public/*` 亦须带同一 per-user Key 或 Bearer JWT
 - **Legacy 全局 Key**：默认已关闭（`OPENCLAW_LEGACY_API_KEY_ENABLED=false`）
 - **价格入库**：`POST /api/v1/openclaw/monitoring/{id}/observations/ingest`
-- **报告入站**：`POST /api/v1/openclaw/reports`（见 [api/openclaw-intake.md](api/openclaw-intake.md)）
+- **报告入站**：`POST /api/v1/openclaw/reports`（见 [openclaw-intake.md](../api/openclaw-intake.md)）
 
-**Skill 部署**（挂载仓库根目录 `skills/` 到 OpenClaw Gateway）：见 [openclaw-skills-deploy.md](openclaw-skills-deploy.md)。  
+**Skill 部署**（挂载仓库根目录 `skills/` 到 OpenClaw Gateway）：见 [openclaw-skills-gateway.md](openclaw-skills-gateway.md)。  
 鉴权约定：`skills/_shared/multi-user-auth.md`
 
 ## 防火墙与安全
@@ -364,7 +364,7 @@ sudo ufw enable
 | 现象 | 排查 |
 |------|------|
 | 首页对话「连接中」 | 检查 Gateway 地址、Nginx WebSocket 配置、`journalctl` 日志 |
-| 切页后回复不完整 | 确认已部署后台 run；`GET /api/v1/chat/runs/active`；见 [portal-chat.md](portal-chat.md) |
+| 切页后回复不完整 | 确认已部署后台 run；`GET /api/v1/chat/runs/active`；见 [portal-chat.md](../features/portal-chat.md) |
 | 重启 app 后对话轮询 404 | `chat_run_store` 为内存态，进行中任务不可恢复 |
 | `healthz/db` 失败 | 核对 DSN、防火墙、PostgreSQL `pg_hba.conf` |
 | 静态页 404 | 确认 `frontend/dist` 存在且 `OPENCLAW_SERVE_SPA=true` |
@@ -387,18 +387,18 @@ sudo ufw enable
 - [ ] `frontend/dist` 已构建（Docker 或 `npm run build`）
 - [ ] `curl /healthz` 与 `/healthz/db` 正常
 - [ ] 反向代理 + TLS 已配置
-- [ ] **Gateway 隔离**：`portal-readonly` Agent、`openclaw-portal-state`、`.env` 中 `OPENCLAW_GATEWAY_PORTAL_STATE_DIR`（见 [security/GATEWAY_ISOLATION.md](security/GATEWAY_ISOLATION.md)）
+- [ ] **Gateway 隔离**：`portal-readonly` Agent、`openclaw-portal-state`、`.env` 中 `OPENCLAW_GATEWAY_PORTAL_STATE_DIR`（见 [../security/gateway-isolation.md](../security/gateway-isolation.md)）
 - [ ] `ufw deny 18789/tcp`；Docker **未** publish 18789
 - [ ] USER 复测：问「我是否是管理员」不应回答 Gateway admin
-- [ ] WebSocket 对话可连接；切页后后台生成与轮询正常（见 [portal-chat.md](portal-chat.md)）
+- [ ] WebSocket 对话可连接；切页后后台生成与轮询正常（见 [portal-chat.md](../features/portal-chat.md)）
 - [ ] OpenClaw Agent 可成功 POST 报告/价格观测
 - [ ] 防火墙仅开放必要端口
 
 ## 相关文档
 
-- [deployment.md](deployment.md) — 本地开发与快速验证
-- [android-app.md](android-app.md) — Android 内测 APK（Capacitor，本机构建）
-- [architecture.md](architecture.md) — 系统架构与数据流
-- [portal-chat.md](portal-chat.md) — 门户对话与后台 run
-- [developer-guide.md](developer-guide.md) — 模块说明与开发规范
-- [security/GATEWAY_ISOLATION.md](security/GATEWAY_ISOLATION.md) — Gateway 权限隔离（P0）
+- [local.md](local.md) — 本地开发与快速验证
+- [android-app.md](../mobile/android-app.md) — Android 内测 APK（Capacitor，本机构建）
+- [overview.md](../architecture/overview.md) — 系统架构与数据流
+- [portal-chat.md](../features/portal-chat.md) — 门户对话与后台 run
+- [developer-guide.md](../development/developer-guide.md) — 模块说明与开发规范
+- [../security/gateway-isolation.md](../security/gateway-isolation.md) — Gateway 权限隔离（P0）

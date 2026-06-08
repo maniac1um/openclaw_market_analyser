@@ -56,7 +56,7 @@ sequenceDiagram
 | USER | `OPENCLAW_GATEWAY_PORTAL_STATE_DIR` | `portal-readonly` | 只读助手；禁止 shell/文件/配置 |
 | ADMIN | `OPENCLAW_GATEWAY_STATE_DIR` | `main` | 完整 Agent（仍须 Skill 安全门） |
 
-未登录用户无法连接 WS。生产部署见 [security/GATEWAY_ISOLATION.md](security/GATEWAY_ISOLATION.md)。
+未登录用户无法连接 WS。生产部署见 [../security/gateway-isolation.md](../security/gateway-isolation.md)。
 
 ADMIN 审计：`GET /api/v1/public/audit/gateway-events`
 
@@ -107,7 +107,7 @@ ADMIN 审计：`GET /api/v1/public/audit/gateway-events`
 | `OPENCLAW_CHAT_TOTAL_TIMEOUT_SECONDS` | `600` | 单轮总 wall-clock 上限 |
 | `OPENCLAW_WS_MESSAGES_PER_MINUTE` | `12` | 每条 WS 连接 `user_message` 限速 |
 
-Gateway 需单独启动；Docker 应用经 `host.docker.internal` 访问宿主机 Gateway，见 [deployment.md](deployment.md)、[openclaw-skills-deploy.md](openclaw-skills-deploy.md)。
+Gateway 需单独启动；Docker 应用经 `host.docker.internal` 访问宿主机 Gateway，见 [local.md](../deployment/local.md)、[openclaw-skills-gateway.md](../deployment/openclaw-skills-gateway.md)。
 
 ## 前端行为
 
@@ -121,7 +121,7 @@ Gateway 需单独启动；Docker 应用经 `host.docker.internal` 访问宿主�
 
 ## 与 Skill 的边界
 
-门户 WS **不内置** News Publisher HTTP 工具。写操作（建监测、发报告等）须 Cursor Skill + per-user API Key，或门户对应页面。见 [`skills/_shared/portal-chat-routing.md`](../skills/_shared/portal-chat-routing.md)。
+门户 WS **不内置** News Publisher HTTP 工具。写操作（建监测、发报告等）须 OpenClaw Skill + per-user API Key，或门户对应页面。见 [`skills/_shared/portal-chat-routing.md`](../../../skills/_shared/portal-chat-routing.md)。
 
 ## 故障排查
 

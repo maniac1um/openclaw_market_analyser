@@ -46,7 +46,7 @@ skill_version: "2.0.0"
 
 ### 1.2 请求基址与鉴权
 
-见 [`../_shared/multi-user-auth.md`](../_shared/multi-user-auth.md)。报告入站还须 **`X-Request-Id`**（缺失 **400**）及可选 **`X-Signature`**（见 `docs/api/openclaw-intake.md`）。发布前 **`openclaw-report-security`** 强制门。
+见 [`../_shared/multi-user-auth.md`](../_shared/multi-user-auth.md)。报告入站还须 **`X-Request-Id`**（缺失 **400**）及可选 **`X-Signature`**（见 `docs/human/api/openclaw-intake.md`）。发布前 **`openclaw-report-security`** 强制门。
 
 ### 1.3 无「一键聚合」读接口
 
@@ -415,7 +415,7 @@ curl -sS -X POST "$BASE_URL/api/v1/openclaw/analysis/news-trigger" \
 
 - 报告 schema：[`../_shared/report-schema.md`](../_shared/report-schema.md)  
 - 发布安全门：`openclaw-report-security`  
-- 入站 API：`docs/api/openclaw-intake.md`  
+- 入站 API：`docs/human/api/openclaw-intake.md`  
 - 价格外采入库：`openclaw-price-ingest-external`  
 - 新闻库治理：`openclaw-public-news-library`  
 - 新闻爬虫发布：`openclaw-news-publisher-enhanced`  

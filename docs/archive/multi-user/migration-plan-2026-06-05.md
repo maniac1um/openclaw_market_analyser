@@ -1,5 +1,7 @@
 # 多用户 SaaS 迁移方案
 
+> **归档（已实施 2026-06-05）** — 勿作待办清单。活跃鉴权约定见 `skills/_shared/multi-user-auth.md`；测试见 [multi-user-test-plan.md](../../human/testing/multi-user-test-plan.md)。
+
 **项目**：OpenClaw News Publisher  
 **文档版本**：1.1  
 **生成日期**：2026-06-05  
@@ -23,9 +25,9 @@
 
 **关联文档：**
 
-- [`MULTI_USER_TEST_PLAN.md`](MULTI_USER_TEST_PLAN.md)
-- [`../security/SECURITY_HARDENING_PLAN.md`](../security/SECURITY_HARDENING_PLAN.md)
-- [`../api/openclaw-intake.md`](../api/openclaw-intake.md)
+- [multi-user-test-plan.md](../../human/testing/multi-user-test-plan.md)
+- [hardening-plan-2026-06-05.md](../../reports/security/hardening-plan-2026-06-05.md)
+- [openclaw-intake.md](../../human/api/openclaw-intake.md)
 
 ---
 

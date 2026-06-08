@@ -195,4 +195,4 @@ cd android && ./gradlew assembleDebug
 - Nginx 443 反代与 TLS
 - **不在此机安装 Android SDK / JDK 用于打 APK**
 
-Web 门户部署见 [server-deployment.md](server-deployment.md)。
+Web 门户部署见 [production.md](../deployment/production.md)。

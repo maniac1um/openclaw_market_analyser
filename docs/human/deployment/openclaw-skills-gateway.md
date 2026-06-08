@@ -1,9 +1,9 @@
 # OpenClaw Skills 部署指南
 
-**适用版本**：Skill 包 **2.0.1**（见 [`skills/VERSIONS.md`](../skills/VERSIONS.md)）  
+**适用版本**：Skill 包 **2.0.1**（见 [`skills/VERSIONS.md`](../../../skills/VERSIONS.md)）  
 **受众**：运维、部署 News Publisher + OpenClaw Gateway 的工程师
 
-本文说明如何将仓库根目录 [`skills/`](../skills/) 挂载到 **OpenClaw Gateway**，并与本项目的 **News Publisher API**、**多用户 API Key** 对齐。
+本文说明如何将仓库根目录 [`skills/`](../../../skills/) 挂载到 **OpenClaw Gateway**，并与本项目的 **News Publisher API**、**多用户 API Key** 对齐。
 
 ---
 
@@ -11,21 +11,9 @@
 
 | 路径 | 说明 |
 |------|------|
-| **`skills/`**（仓库根） | **权威路径**；Git 跟踪、Gateway `extraDirs`、运维脚本均使用此目录 |
-| **`.cursor/skills`** | 指向 `skills/` 的 **符号链接**，供 Cursor IDE 自动发现 Skill |
+| **`skills/`**（仓库根） | **OpenClaw 运行时权威路径**；Git 跟踪、Gateway `extraDirs`、运维脚本均使用此目录 |
 
-克隆仓库后应存在：
-
-```bash
-ls -la .cursor/skills
-# .cursor/skills -> ../skills
-```
-
-若符号链接缺失，可手动创建：
-
-```bash
-ln -sfn ../skills .cursor/skills
-```
+> `skills/` 面向 **OpenClaw Gateway 运行时**（cron、外采 Agent、门户对话编排），**不是** Cursor IDE 开发辅助指令。工程师在 Cursor 中开发本仓库请读 [AGENT_DOCUMENTATION_RULES.md](../../AGENT_DOCUMENTATION_RULES.md)。
 
 ---
 
@@ -35,8 +23,7 @@ ln -sfn ../skills .cursor/skills
 flowchart TB
   subgraph repo [本仓库]
     NP[News Publisher :8000]
-    SK["skills/"]
-    CUR[".cursor/skills → skills/"]
+    SK["skills/ (OpenClaw)"]
   end
   subgraph openclaw_host [OpenClaw 宿主机]
     GW[OpenClaw Gateway :18789]
@@ -48,13 +35,12 @@ flowchart TB
   GW -->|读取 SKILL.md| SK
   GW -.->|可选 HTTP 工具| NP
   Cron[cron / 外采 Agent] -->|X-Api-Key| NP
-  CUR -.->|Cursor IDE| SK
 ```
 
 | 组件 | 是否在本仓库 | 说明 |
 |------|----------------|------|
 | **News Publisher** | ✅ | FastAPI + SPA；提供 `/api/v1/openclaw/*` 入站与门户 |
-| **`skills/`** | ✅ | Agent 指令、`_shared` 策略、爬虫脚本（增强包） |
+| **`skills/`** | ✅ | OpenClaw 运行时指令、`_shared` 策略、爬虫脚本（增强包） |
 | **OpenClaw Gateway** | ❌ | 独立安装；门户 `/` 对话经 WS 连 Gateway |
 
 部署 News Publisher **不会**自动把 Skill 装入 Gateway，须按本文 **第 3 节** 配置。
@@ -184,7 +170,7 @@ skills: { load: { extraDirs: ["/skills/openclaw-news-publisher"] } }
 
 ## 4. News Publisher 侧配置
 
-部署应用后（见 [server-deployment.md](server-deployment.md)），在 `.env` 中配置 Gateway 地址：
+部署应用后（见 [production.md](production.md)），在 `.env` 中配置 Gateway 地址：
 
 ```env
 OPENCLAW_OPENCLAW_WS_URL=ws://127.0.0.1:18789/ws
@@ -200,7 +186,7 @@ Gateway 与 News Publisher 网络须互通（同机 `127.0.0.1` 或内网 IP）�
 
 ### 4.1 Gateway 权限隔离（P0，生产必做）
 
-门户 USER 不得共用 admin Gateway device。详见 **[security/GATEWAY_ISOLATION.md](security/GATEWAY_ISOLATION.md)**。
+门户 USER 不得共用 admin Gateway device。详见 **[gateway-isolation.md](../security/gateway-isolation.md)**。
 
 | 变量 | 说明 |
 |------|------|
@@ -224,7 +210,7 @@ Gateway `openclaw.json` 须配置双 Agent：`portal-readonly`（仅 `openclaw-c
 | OpenClaw / cron Agent | per-user `X-Api-Key` | 门户 **账户 → API Key 管理** 生成 |
 | Skill 环境变量 | `BASE_URL` + `API_KEY` | 注入 Gateway 配置或宿主机 env |
 
-详见 [`skills/_shared/multi-user-auth.md`](../skills/_shared/multi-user-auth.md)。
+详见 [`skills/_shared/multi-user-auth.md`](../../../skills/_shared/multi-user-auth.md)。
 
 ### 5.2 注入 `BASE_URL` / `API_KEY`
 
@@ -259,32 +245,19 @@ python3 -m pip install -r requirements.txt
 
 ---
 
-## 6. Cursor IDE（开发环境）
-
-开发者 clone 本仓库后，Cursor 通过 **`.cursor/skills` → `skills/`** 符号链接自动加载 Skill。
-
-```bash
-export BASE_URL="http://127.0.0.1:8000"
-export API_KEY="<门户账户页生成的 Key>"
-```
-
-本地双进程调试见 [developer-guide.md](developer-guide.md)。
-
----
-
-## 7. 门户聊天 vs Cursor / cron
+## 6. 门户聊天 vs Gateway / cron
 
 | 环境 | Skill 来源 | 能否直接调 News Publisher API |
 |------|------------|-------------------------------|
-| **Cursor**（打开本仓库） | `.cursor/skills` → `skills/` | ✅（配 `API_KEY`） |
-| **门户 `/` 聊天** | Gateway 已加载 Skill | ⚠️ 仅当 Gateway 配置 HTTP 工具；默认 WS 不内置 API |
-| **cron / 外采脚本** | Gateway 或独立 Agent | ✅ `curl` + `X-Api-Key` |
+| **门户 `/` 聊天** | Gateway 已加载 `skills/` | ⚠️ 仅当 Gateway 配置 HTTP 工具；默认 WS 不内置 API |
+| **cron / 外采 Agent** | Gateway 或独立 OpenClaw Agent | ✅ `curl` + `X-Api-Key` |
+| **Cursor IDE** | 不加载 `skills/` 作操作手册 | 开发本仓库见 [developer-guide.md](../development/developer-guide.md) |
 
-门户写操作（建监测、发报告）若聊天中未真正执行，见 [`skills/_shared/portal-chat-routing.md`](../skills/_shared/portal-chat-routing.md)。对话后台生成与轮询见 [portal-chat.md](../docs/portal-chat.md)。
+门户写操作（建监测、发报告）若聊天中未真正执行，见 [`skills/_shared/portal-chat-routing.md`](../../../skills/_shared/portal-chat-routing.md)。对话后台生成与轮询见 [portal-chat.md](../features/portal-chat.md)。
 
 ---
 
-## 8. 发布与更新流程
+## 7. 发布与更新流程
 
 ```bash
 # 1. 更新代码
@@ -306,15 +279,15 @@ curl -s https://portal.example.com/healthz
 pytest -q tests/api/test_multi_user_*.py tests/api/test_security_*.py
 ```
 
-发布前检查清单：[`skills/_shared/ci-skill-regression.md`](../skills/_shared/ci-skill-regression.md)。
+发布前检查清单：[`skills/_shared/ci-skill-regression.md`](../../../skills/_shared/ci-skill-regression.md)。
 
 ---
 
-## 9. 验证清单
+## 8. 验证清单
 
 | # | 检查项 | 通过标准 |
 |---|--------|----------|
-| 1 | 仓库路径 | `skills/` 存在；`.cursor/skills` 指向 `../skills` |
+| 1 | 仓库路径 | `skills/` 存在且为 Gateway `extraDirs` 指向的目录 |
 | 2 | Gateway 加载 Skill | `openclaw skills list` 含 8 个 `openclaw-*` |
 | 3 | `_shared` 可访问 | Agent 能按 Skill 内链接理解鉴权（无断链） |
 | 4 | 门户 WS | 首页对话非长期「连接中」；`OPENCLAW_OPENCLAW_WS_URL` 正确 |
@@ -325,28 +298,27 @@ pytest -q tests/api/test_multi_user_*.py tests/api/test_security_*.py
 
 ---
 
-## 10. 故障排查
+## 9. 故障排查
 
 | 现象 | 可能原因 | 处理 |
 |------|----------|------|
-| Cursor 无 Skill | `.cursor/skills` 链接断裂 | `ln -sfn ../skills .cursor/skills` |
 | 对话无 Skill 行为 | Gateway 未配置 `extraDirs` | 按 §3.1 配置并新开会话 |
 | `../_shared` 引用失效 | 只安装了单个 Skill 目录 | 改为整包 `extraDirs` 指向 `skills/` |
 | 爬虫/CLI 报错 | 未装 `requirements.txt` | §5.3 |
 | 401 / 403 | Key 无效或撤销 | 门户重新生成 Key |
 | 404 monitor / report | Key 与 `monitor_id` 不配对 | `openclaw-user-workspace` 列本用户资源 |
-| 门户聊天「已发布」但未入库 | WS 无 HTTP 工具 | 引导 Cursor 或门户页面；见 portal-chat-routing |
+| 门户聊天「已发布」但未入库 | WS 无 HTTP 工具 | 引导 OpenClaw Agent 或门户页面；见 portal-chat-routing |
 | Skill 更新不生效 | 旧会话快照 | 新开会话或重启 Gateway |
 
 ---
 
-## 11. 相关文档
+## 10. 相关文档
 
 | 文档 | 内容 |
 |------|------|
-| [server-deployment.md](server-deployment.md) | News Publisher 生产部署 |
-| [deployment.md](deployment.md) | 本地开发、Gateway 说明 |
-| [api/openclaw-intake.md](api/openclaw-intake.md) | 入站 API 契约 |
-| [`skills/SKILL_REFACTOR_PLAN.md`](../skills/SKILL_REFACTOR_PLAN.md) | Skill 架构总览 |
-| [`skills/VERSIONS.md`](../skills/VERSIONS.md) | 版本表 |
+| [production.md](production.md) | News Publisher 生产部署 |
+| [local.md](local.md) | 本地开发、Gateway 说明 |
+| [openclaw-intake.md](../api/openclaw-intake.md) | 入站 API 契约 |
+| [skill-refactor-plan-2026-06-06.md](../../archive/skills/skill-refactor-plan-2026-06-06.md) | Skill 架构总览（归档） |
+| [`skills/VERSIONS.md`](../../../skills/VERSIONS.md) | 版本表 |
 | [OpenClaw Skills 官方文档](https://docs.openclaw.ai/tools/skills) | Gateway Skill 加载机制 |

@@ -19,11 +19,10 @@ openclaw_news_publisher/
 ├── frontend/                # React SPA (Vite + Tailwind)
 │   ├── android/             # Capacitor Android 工程（apk-test 分支）
 │   └── src/features/chat/   # ChatProvider、ChatPage、pendingRuns
-├── docs/                    # 人类文档
+├── docs/                    # human / openclaw / reports / archive
 ├── scripts/                 # 部署与运维脚本
 ├── tests/                   # pytest
-├── skills/                  # OpenClaw Agent 技能（权威路径）
-└── .cursor/skills -> skills/  # Cursor IDE 符号链接
+└── skills/                  # OpenClaw Gateway 运行时 Skill（权威路径）
 ```
 
 ## 核心模块
@@ -54,7 +53,7 @@ openclaw_news_publisher/
 - 数据获取：TanStack Query
 - 路由：React Router v6
 - 构建：`cd frontend && npm run build`
-- Android 内测 APK（Capacitor）：见 [android-app.md](android-app.md)，在 `apk-test` 分支、`frontend/android/`
+- Android 内测 APK（Capacitor）：见 [android-app.md](../mobile/android-app.md)，在 `apk-test` 分支、`frontend/android/`
 
 ### 常见任务
 
@@ -84,7 +83,7 @@ cd frontend && npm run dev
 
 浏览器访问 `http://localhost:5173`，首次使用请 **注册/登录**。OpenClaw Agent 须在门户 **账户 → API Key 管理** 生成 per-user Key（全局 `dev-openclaw-key` 在 Legacy 关闭后无效）。
 
-**门户对话开发**：Gateway 需在宿主机单独运行；须配置 `portal-readonly` Agent 与 portal device（见 [security/GATEWAY_ISOLATION.md](security/GATEWAY_ISOLATION.md)）。前端 `ChatProvider` 在 `AppShell` 外层维持 WS。行为与 API 见 [portal-chat.md](portal-chat.md)。
+**门户对话开发**：Gateway 需在宿主机单独运行；须配置 `portal-readonly` Agent 与 portal device（见 [gateway-isolation.md](../security/gateway-isolation.md)）。前端 `ChatProvider` 在 `AppShell` 外层维持 WS。行为与 API 见 [portal-chat.md](../features/portal-chat.md)。
 
 ## 多用户与鉴权
 
@@ -97,7 +96,7 @@ cd frontend && npm run dev
 | Legacy Key | `OPENCLAW_LEGACY_API_KEY_ENABLED`（默认 **false**） |
 | Bootstrap ADMIN | `admin@localhost` / `Test_648.`（启动时自动创建；生产请尽快改密） |
 
-详见 [multi-user/MULTI_USER_MIGRATION_PLAN.md](multi-user/MULTI_USER_MIGRATION_PLAN.md)。
+详见 [migration-plan-2026-06-05.md](../../archive/multi-user/migration-plan-2026-06-05.md)（归档，已实施）。
 
 ## 测试
 
@@ -112,13 +111,15 @@ pytest tests/test_prompt_safety.py -v        # 对话违规词过滤
 ## API 文档
 
 - Swagger UI：`http://localhost:8000/docs`
-- 契约文档：[docs/api/openclaw-intake.md](api/openclaw-intake.md)
-- 门户对话：[docs/portal-chat.md](portal-chat.md)
+- 契约文档：[openclaw-intake.md](../api/openclaw-intake.md)
+- 门户对话：[portal-chat.md](../features/portal-chat.md)
 
-## Agent 技能
+## OpenClaw Skill 包
 
-仓库根目录 **`skills/`** 供 OpenClaw Gateway 与 Cursor（经 `.cursor/skills` 符号链接）使用（**v2.0.1**，8 个 Skill + `_shared/`），**服务运行时不必加载此目录**。  
-**生产挂载 Gateway**：见 [openclaw-skills-deploy.md](openclaw-skills-deploy.md)。架构说明：[`skills/SKILL_REFACTOR_PLAN.md`](../skills/SKILL_REFACTOR_PLAN.md)。
+仓库根目录 **`skills/`** 供 **OpenClaw Gateway** 运行时加载（**v2.0.1**，8 个 Skill + `_shared/`）；FastAPI 服务本身不加载此目录。  
+**不是 Cursor Agent 操作手册** — Cursor 开发本仓库请读 [AGENT_DOCUMENTATION_RULES.md](../../AGENT_DOCUMENTATION_RULES.md)。
+
+**Gateway 挂载**：见 [openclaw-skills-gateway.md](../deployment/openclaw-skills-gateway.md)。索引：[openclaw/README.md](../../openclaw/README.md)。架构说明（归档）：[skill-refactor-plan-2026-06-06.md](../../archive/skills/skill-refactor-plan-2026-06-06.md)。
 
 | Skill | 用途 |
 |-------|------|

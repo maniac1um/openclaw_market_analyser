@@ -80,7 +80,7 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 ## 9. 推荐阅读顺序
 
-1. 根目录 [README.md](../README.md) — 功能、接口、快速开始  
-2. [docs/api/openclaw-intake.md](api/openclaw-intake.md) — OpenClaw 接入契约  
-3. [docs/architecture.md](architecture.md) — 系统架构与数据流  
+1. 根目录 [README.md](../../../README.md) — 功能、接口、快速开始  
+2. [openclaw-intake.md](../api/openclaw-intake.md) — OpenClaw 接入契约  
+3. [overview.md](../architecture/overview.md) — 系统架构与数据流  
 4. 本文 — 跨平台开发约定  

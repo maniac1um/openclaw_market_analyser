@@ -29,7 +29,7 @@ pytest -q
 
 ## 2. A/B Key 交叉访问矩阵（Skill 假设）
 
-与 [`docs/multi-user/MULTI_USER_TEST_PLAN.md`](../../docs/multi-user/MULTI_USER_TEST_PLAN.md) 对齐：
+与 [`docs/human/testing/multi-user-test-plan.md`](../../docs/human/testing/multi-user-test-plan.md) 对齐：
 
 | ID | 场景 | 预期 | 测试文件 |
 |----|------|------|----------|

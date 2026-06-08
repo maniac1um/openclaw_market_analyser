@@ -106,6 +106,7 @@ async def _execute_chat_turn(
     user_text: str,
     connect_ctx: GatewayConnectContext,
     cancel_event: asyncio.Event,
+    turn_generation: int,
     publish: Callable[[dict[str, Any]], Awaitable[None]],
     audit_decision: str,
 ) -> None:
@@ -139,14 +140,22 @@ async def _execute_chat_turn(
     )
 
     async def on_assistant_update(delta_text: str, done: bool) -> None:
+        current = await chat_run_store.get_run(
+            owner_user_id=owner_user_id,
+            session_key=client_session_key,
+        )
+        if current is None or current.generation != turn_generation:
+            return
         run_status: ChatRunStatus = "done" if done else "streaming"
-        await chat_run_store.update_run(
+        updated = await chat_run_store.update_run(
             owner_user_id=owner_user_id,
             session_key=client_session_key,
             text=delta_text,
             done=done,
             status=run_status,
         )
+        if updated is None:
+            return
         await publish(
             {
                 "type": "assistant_delta",
@@ -177,6 +186,12 @@ async def _execute_chat_turn(
             total_timeout_seconds=settings.openclaw_chat_total_timeout_seconds,
             cancel_event=cancel_event,
         )
+        current = await chat_run_store.get_run(
+            owner_user_id=owner_user_id,
+            session_key=client_session_key,
+        )
+        if current is None or current.generation != turn_generation:
+            return
         latency_ms = int((time.monotonic() - turn_started) * 1000)
         log_gateway_event(
             user_id=owner_user_id,
@@ -190,6 +205,12 @@ async def _execute_chat_turn(
             latency_ms=latency_ms,
         )
     except ChatCancelledError as exc:
+        current = await chat_run_store.get_run(
+            owner_user_id=owner_user_id,
+            session_key=client_session_key,
+        )
+        if current is None or current.generation != turn_generation:
+            return
         final_text = _append_status_suffix(exc.partial_text, _CANCEL_SUFFIX)
         await chat_run_store.update_run(
             owner_user_id=owner_user_id,
@@ -219,6 +240,12 @@ async def _execute_chat_turn(
             latency_ms=int((time.monotonic() - turn_started) * 1000),
         )
     except OpenClawChatTimeoutError as exc:
+        current = await chat_run_store.get_run(
+            owner_user_id=owner_user_id,
+            session_key=client_session_key,
+        )
+        if current is None or current.generation != turn_generation:
+            return
         final_text = _append_status_suffix(exc.partial_text, _TIMEOUT_SUFFIX)
         await chat_run_store.update_run(
             owner_user_id=owner_user_id,
@@ -248,6 +275,12 @@ async def _execute_chat_turn(
             latency_ms=int((time.monotonic() - turn_started) * 1000),
         )
     except Exception as exc:
+        current = await chat_run_store.get_run(
+            owner_user_id=owner_user_id,
+            session_key=client_session_key,
+        )
+        if current is None or current.generation != turn_generation:
+            return
         error = sanitize_client_error(exc)
         await chat_run_store.update_run(
             owner_user_id=owner_user_id,
@@ -416,7 +449,7 @@ async def chat_ws(websocket: WebSocket) -> None:
                 )
                 continue
 
-            if await chat_run_store.is_user_busy(owner_user_id, except_session_key=session_key):
+            if await chat_run_store.is_user_busy(owner_user_id):
                 await publish(
                     {
                         "type": "assistant_error",
@@ -455,6 +488,7 @@ async def chat_ws(websocket: WebSocket) -> None:
                     user_text=user_text.strip(),
                     connect_ctx=connect_ctx,
                     cancel_event=record.cancel_event,
+                    turn_generation=record.generation,
                     publish=publish,
                     audit_decision=perm.decision,
                 ),

@@ -167,7 +167,7 @@ print('OK')
 | `X-Api-Key` | 已设置且非 Legacy 弱密钥（生产） |
 | 证据链 | `items` 为空时 `analysis` 须说明；禁止编造 URL |
 | 空 items | 允许 `[]`，但须在 `analysis` 注明 |
-| 签名校验 | 若部署开启 `X-Signature`，须按 `docs/api/openclaw-intake.md` 计算 |
+| 签名校验 | 若部署开启 `X-Signature`，须按 `docs/human/api/openclaw-intake.md` 计算 |
 
 通过后执行 POST → 轮询至 `published` 或 `failed`。
 
@@ -290,4 +290,4 @@ print('OK')
 - [`../_shared/report-schema.md`](../_shared/report-schema.md)
 - [`../_shared/ownership-policy.md`](../_shared/ownership-policy.md)
 - [`../_shared/multi-user-auth.md`](../_shared/multi-user-auth.md)
-- `docs/api/openclaw-intake.md`
+- `docs/human/api/openclaw-intake.md`

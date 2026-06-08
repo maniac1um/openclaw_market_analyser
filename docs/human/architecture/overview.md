@@ -7,7 +7,7 @@ OpenClaw News Publisher 是一个 **FastAPI 后端 + React SPA 前端** 的市�
 ```mermaid
 flowchart TB
     subgraph agent [OpenClaw Agent]
-        skills[Cursor Skills]
+        skills[OpenClaw Skills]
     end
     subgraph server [FastAPI Backend]
         openclaw_api[api/v1/openclaw.py]
@@ -70,7 +70,7 @@ sequenceDiagram
 
 ## Agent 流程
 
-1. Cursor Skill 抓取/整理新闻，生成符合 `OpenClawReportIn` schema 的 JSON
+1. OpenClaw Skill 抓取/整理新闻，生成符合 `OpenClawReportIn` schema 的 JSON
 2. `POST /api/v1/openclaw/reports` 提交（必须带 `X-Request-Id`）
 3. 轮询 `GET /api/v1/openclaw/reports/{ingest_id}` 直到 `published`
 4. 前端 `GET /api/v1/public/reports` 读取并展示
@@ -89,9 +89,9 @@ sequenceDiagram
 
 ## 门户对话
 
-首页经 WebSocket 代理 OpenClaw Gateway；**USER 与 ADMIN 使用不同 Agent / device 凭证**（见 [security/GATEWAY_ISOLATION.md](security/GATEWAY_ISOLATION.md)）。每轮对话在服务端 **`chat_run_store`（内存）** 保留最新正文，客户端可通过 **`GET /chat/runs/{sessionKey}`** 恢复。
+首页经 WebSocket 代理 OpenClaw Gateway；**USER 与 ADMIN 使用不同 Agent / device 凭证**（见 [../security/gateway-isolation.md](../security/gateway-isolation.md)）。每轮对话在服务端 **`chat_run_store`（内存）** 保留最新正文，客户端可通过 **`GET /chat/runs/{sessionKey}`** 恢复。
 
-详见 [portal-chat.md](portal-chat.md)。
+详见 [portal-chat.md](../features/portal-chat.md)。
 
 ## Git 发布流程
 
@@ -101,7 +101,7 @@ sequenceDiagram
 
 ## OpenClaw Gateway
 
-`OPENCLAW_OPENCLAW_WS_URL` 用于门户聊天 WebSocket 代理。生产须配置双 Agent（`portal-readonly` / `main`）与双 device 目录，详见 [security/GATEWAY_ISOLATION.md](security/GATEWAY_ISOLATION.md)。
+`OPENCLAW_OPENCLAW_WS_URL` 用于门户聊天 WebSocket 代理。生产须配置双 Agent（`portal-readonly` / `main`）与双 device 目录，详见 [../security/gateway-isolation.md](../security/gateway-isolation.md)。
 
 ## 模块地图
 

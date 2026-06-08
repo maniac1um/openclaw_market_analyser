@@ -19,7 +19,7 @@ Skill 包版本与 `VERSIONS.md` 同步。
 
 ### Added
 
-- **部署文档**：`docs/openclaw-skills-deploy.md`（Gateway 挂载、API Key、更新与验证）
+- **部署文档**：`docs/human/deployment/openclaw-skills-gateway.md`（Gateway 挂载、API Key、更新与验证）
 
 - **架构**：`SKILL_REFACTOR_PLAN.md` 多用户 SaaS Skill 重构计划
 - **_shared**：`report-schema.md`、`ownership-policy.md`、`report-security.md`

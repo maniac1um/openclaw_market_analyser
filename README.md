@@ -6,13 +6,13 @@
 
 ```mermaid
 flowchart LR
-    Agent[OpenClaw Skill] -->|POST reports| API[FastAPI]
+    Agent[OpenClaw Agent] -->|POST reports| API[FastAPI]
     API --> DB[(PostgreSQL x3)]
     API --> SPA[React SPA]
     User[用户] --> SPA
 ```
 
-详见 [docs/architecture.md](docs/architecture.md)。
+详见 [docs/human/architecture/overview.md](docs/human/architecture/overview.md)。
 
 ## 功能
 
@@ -26,14 +26,14 @@ flowchart LR
 | 多用户门户 | 注册/登录、JWT、per-user API Key、数据隔离 |
 | OpenClaw 对话 | 门户 WebSocket 聊天（需 Gateway）；**USER/ADMIN 分 Agent 隔离**；后台生成 + 轮询恢复 |
 
-完整 API 见 [docs/api/openclaw-intake.md](docs/api/openclaw-intake.md) 与 `/docs`（Swagger）。
+完整 API 见 [docs/human/api/openclaw-intake.md](docs/human/api/openclaw-intake.md) 与 `/docs`（Swagger）。
 
 ## 技术栈
 
 - **后端**：Python 3.11+ / FastAPI / Pydantic / psycopg
 - **前端**：React 18 / TypeScript / Vite / Tailwind CSS
 - **数据库**：PostgreSQL × 3（reports / monitoring / news）
-- **Agent**：`skills/` OpenClaw 技能包（Cursor 经 `.cursor/skills` 符号链接）
+- **OpenClaw 运行时**：`skills/` Skill 包（Gateway `extraDirs` 权威路径）
 
 ## 30 分钟快速启动
 
@@ -45,7 +45,7 @@ pip install -e ".[dev]"
 
 # 2. 配置环境
 cp .env.example .env
-# 编辑三库 DSN（见 docs/deployment.md）
+# 编辑三库 DSN（见 docs/human/deployment/local.md）
 
 # 3. 验证数据库
 bash scripts/local/verify-openclaw-databases.sh
@@ -66,10 +66,10 @@ open http://localhost:5173
 
 生产单体部署：`cd frontend && npm run build && uvicorn app.main:app --port 8000`
 
-- 本地开发：[docs/deployment.md](docs/deployment.md)
-- 服务器 / 生产：[docs/server-deployment.md](docs/server-deployment.md)
-- **Android 内测 APK（Capacitor）**：[docs/android-app.md](docs/android-app.md)（`apk-test` 分支）
-- **OpenClaw Skills 挂载 Gateway**：[docs/openclaw-skills-deploy.md](docs/openclaw-skills-deploy.md)
+- 本地开发：[docs/human/deployment/local.md](docs/human/deployment/local.md)
+- 服务器 / 生产：[docs/human/deployment/production.md](docs/human/deployment/production.md)
+- **Android 内测 APK**：[docs/human/mobile/android-app.md](docs/human/mobile/android-app.md)（`apk-test` 分支）
+- **OpenClaw Skills 挂载 Gateway**：[docs/human/deployment/openclaw-skills-gateway.md](docs/human/deployment/openclaw-skills-gateway.md)
 
 ## 环境变量
 
@@ -93,36 +93,28 @@ open http://localhost:5173
 | `OPENCLAW_CHAT_ENABLED_FOR_USER` | USER 是否可门户聊天（默认 true） |
 | `OPENCLAW_SERVE_SPA` | 是否挂载前端静态资源（默认 true） |
 
-Gateway 权限隔离详见 [docs/security/GATEWAY_ISOLATION.md](docs/security/GATEWAY_ISOLATION.md)。
+Gateway 权限隔离详见 [docs/human/security/gateway-isolation.md](docs/human/security/gateway-isolation.md)。
 
 ## 目录结构
 
 ```text
 app/           # FastAPI 后端
 frontend/      # React SPA
-docs/          # 架构、部署、开发文档
+docs/          # human / openclaw / reports / archive
 scripts/       # 一键部署与本地脚本
 tests/         # pytest
-skills/           # Agent 技能（权威路径）
-.cursor/skills -> skills/  # Cursor IDE 符号链接
+skills/        # OpenClaw Gateway 运行时 Skill（权威路径）
 ```
 
-## 文档地图
+## 文档入口
 
-| 文档 | 内容 |
+**完整文档地图**：[docs/PROJECT_DOCUMENT_INDEX.md](docs/PROJECT_DOCUMENT_INDEX.md)
+
+| 受众 | 入口 |
 |------|------|
-| [docs/architecture.md](docs/architecture.md) | 系统架构、数据流、三库 |
-| [docs/portal-chat.md](docs/portal-chat.md) | 门户对话、后台生成、轮询 API |
-| [docs/deployment.md](docs/deployment.md) | 本地开发与快速验证 |
-| [docs/server-deployment.md](docs/server-deployment.md) | 服务器 / Docker / Nginx / systemd 生产部署 |
-| [docs/android-app.md](docs/android-app.md) | Android 内测 APK（Capacitor，`apk-test` 分支） |
-| [docs/developer-guide.md](docs/developer-guide.md) | 模块说明、开发规范 |
-| [docs/api/openclaw-intake.md](docs/api/openclaw-intake.md) | API 契约 |
-| [docs/security/GATEWAY_ISOLATION.md](docs/security/GATEWAY_ISOLATION.md) | Gateway 网络隔离、双 Agent、双 device |
-| [docs/multi-user/MULTI_USER_TEST_PLAN.md](docs/multi-user/MULTI_USER_TEST_PLAN.md) | 多用户测试计划 |
-| [docs/cross-platform-development.md](docs/cross-platform-development.md) | Win/Ubuntu 协作 |
-| [skills/README.md](skills/README.md) | Agent Skill 包说明与路径约定 |
-| [docs/openclaw-skills-deploy.md](docs/openclaw-skills-deploy.md) | Gateway 挂载 `skills/`、API Key |
+| 人类工程师 | [docs/human/README.md](docs/human/README.md) |
+| OpenClaw 运行时 | [docs/openclaw/README.md](docs/openclaw/README.md) → `skills/` |
+| Cursor 开发辅助 | [docs/AGENT_DOCUMENTATION_RULES.md](docs/AGENT_DOCUMENTATION_RULES.md) |
 
 ## 测试
 

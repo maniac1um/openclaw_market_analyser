@@ -3,7 +3,7 @@
 **项目**：OpenClaw News Publisher  
 **文档版本**：1.1  
 **生成日期**：2026-06-05  
-**关联**：[`MULTI_USER_MIGRATION_PLAN.md`](MULTI_USER_MIGRATION_PLAN.md)
+**关联**：[migration-plan-2026-06-05.md](../../archive/multi-user/migration-plan-2026-06-05.md)（归档，已实施）
 
 ---
 
@@ -187,7 +187,7 @@ tests/api/test_multi_user_openclaw_key.py # OC, PUB
 tests/test_prompt_safety.py             # 对话违规词过滤
 ```
 
-**Skill 架构 CI 映射**：见 [`skills/_shared/ci-skill-regression.md`](../skills/_shared/ci-skill-regression.md)（SK-ISO-* / SK-SEC-* 与上表用例对应）。
+**Skill 架构 CI 映射**：见 [`skills/_shared/ci-skill-regression.md`](../../../skills/_shared/ci-skill-regression.md)（SK-ISO-* / SK-SEC-* 与上表用例对应）。
 
 当前：`pytest -q` → **85 passed**（含 security 回归，Legacy Key 默认关闭）。
 

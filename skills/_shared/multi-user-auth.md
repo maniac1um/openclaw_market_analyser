@@ -43,5 +43,5 @@
 - [`quota-policy.md`](quota-policy.md) — 租户配额（预埋）
 - [`workspace-api-roadmap.md`](workspace-api-roadmap.md) — 工作区 API 路线图
 - [`ci-skill-regression.md`](ci-skill-regression.md) — CI 回归门禁
-- [`docs/multi-user/MULTI_USER_MIGRATION_PLAN.md`](../../docs/multi-user/MULTI_USER_MIGRATION_PLAN.md)
-- [`docs/api/openclaw-intake.md`](../../docs/api/openclaw-intake.md)
+- [`docs/archive/multi-user/migration-plan-2026-06-05.md`](../../docs/archive/multi-user/migration-plan-2026-06-05.md)
+- [`docs/human/api/openclaw-intake.md`](../../docs/human/api/openclaw-intake.md)
