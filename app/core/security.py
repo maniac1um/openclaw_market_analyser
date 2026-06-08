@@ -19,6 +19,8 @@ from app.db.user_models import User
 
 PORTAL_SESSION_COOKIE = "openclaw_portal_session"
 PORTAL_SESSION_MAX_AGE_SECONDS = 86400
+CSRF_COOKIE = "openclaw_csrf"
+CSRF_HEADER = "X-CSRF-Token"
 
 
 def is_valid_api_key(api_key: str | None) -> bool:
@@ -37,8 +39,11 @@ def verify_api_key(x_api_key: str | None = Header(default=None)) -> User:
     user = resolve_user_from_api_key(x_api_key)
     if user:
         return user
-    if settings.legacy_api_key_enabled and x_api_key and secrets.compare_digest(
-        x_api_key.encode("utf-8"), settings.openclaw_api_key.encode("utf-8")
+    if (
+        settings.legacy_api_key_enabled
+        and not settings.production_mode
+        and x_api_key
+        and secrets.compare_digest(x_api_key.encode("utf-8"), settings.openclaw_api_key.encode("utf-8"))
     ):
         ctx = legacy_admin_context()
         return User(
@@ -62,9 +67,58 @@ def portal_session_token() -> str:
 
 
 def is_valid_portal_session(cookie_value: str | None) -> bool:
+    if settings.production_mode:
+        return False
     if not cookie_value:
         return False
     return secrets.compare_digest(cookie_value, portal_session_token())
+
+
+def issue_csrf_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def set_csrf_cookie(response, token: str) -> None:
+    from starlette.responses import Response
+
+    assert isinstance(response, Response)
+    kwargs: dict = {
+        "key": CSRF_COOKIE,
+        "value": token,
+        "httponly": False,
+        "samesite": "strict",
+        "max_age": settings.jwt_refresh_ttl_seconds,
+        "path": "/",
+        "secure": settings.cookie_secure,
+    }
+    if settings.cookie_domain:
+        kwargs["domain"] = settings.cookie_domain
+    response.set_cookie(**kwargs)
+
+
+def clear_csrf_cookie(response) -> None:
+    from starlette.responses import Response
+
+    assert isinstance(response, Response)
+    kwargs: dict = {"key": CSRF_COOKIE, "path": "/"}
+    if settings.cookie_domain:
+        kwargs["domain"] = settings.cookie_domain
+    response.delete_cookie(**kwargs)
+
+
+def _uses_cookie_session_auth(request: Request) -> bool:
+    if _bearer_token(request) or request.headers.get("x-api-key"):
+        return False
+    return bool(request.cookies.get(REFRESH_COOKIE))
+
+
+def verify_csrf_for_cookie_writes(request: Request) -> None:
+    if not _uses_cookie_session_auth(request):
+        return
+    header = request.headers.get(CSRF_HEADER) or request.headers.get("x-csrf-token")
+    cookie = request.cookies.get(CSRF_COOKIE)
+    if not header or not cookie or not secrets.compare_digest(header, cookie):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF token required")
 
 
 def _bearer_token(request: Request) -> str | None:

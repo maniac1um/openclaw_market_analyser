@@ -83,6 +83,8 @@ cd frontend && npm run dev
 
 浏览器访问 `http://localhost:5173`，首次使用请 **注册/登录**。OpenClaw Agent 须在门户 **账户 → API Key 管理** 生成 per-user Key（全局 `dev-openclaw-key` 在 Legacy 关闭后无效）。
 
+**磁盘清理**：`bash scripts/local/cleanup.sh`（dry-run）；`--apply` 删除缓存与 Skill 临时文件；`--aggressive` 另删 `node_modules` / `.venv`（需重建）。
+
 **门户对话开发**：Gateway 需在宿主机单独运行；须配置 `portal-readonly` Agent 与 portal device（见 [gateway-isolation.md](../security/gateway-isolation.md)）。前端 `ChatProvider` 在 `AppShell` 外层维持 WS。行为与 API 见 [portal-chat.md](../features/portal-chat.md)。
 
 ## 多用户与鉴权

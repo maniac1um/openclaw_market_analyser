@@ -6,6 +6,7 @@ export type AuthUser = {
   email: string
   username: string
   role: string
+  is_demo?: boolean
 }
 
 type AuthContextValue = {
@@ -60,9 +61,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return true
   }, [applyAuth])
 
+function readCsrfCookie(): string | null {
+  const match = document.cookie.match(/(?:^|; )openclaw_csrf=([^;]*)/)
+  return match ? decodeURIComponent(match[1]) : null
+}
+
   const getAuthHeaders = useCallback((): Record<string, string> => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`
+    const csrf = readCsrfCookie()
+    if (csrf) headers['X-CSRF-Token'] = csrf
     return headers
   }, [accessToken])
 

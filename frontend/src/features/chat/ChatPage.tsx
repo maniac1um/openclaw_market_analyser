@@ -3,6 +3,7 @@ import { Loader2, MessageSquarePlus, PanelLeftClose, PanelLeft, Send, Square, Tr
 import { toast } from 'sonner'
 import { cn } from '../../lib/utils'
 import { useIsMdUp } from '../../lib/useMediaQuery'
+import { MarkdownContent } from '../../components/markdown/MarkdownContent'
 import { useChat } from './ChatProvider'
 
 function MessageBubble({
@@ -29,8 +30,10 @@ function MessageBubble({
         OC
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-sm leading-7 text-[var(--color-text)] whitespace-pre-wrap">
-          {text || (
+        <div className="text-sm text-[var(--color-text)]">
+          {text ? (
+            <MarkdownContent compact>{text}</MarkdownContent>
+          ) : (
             <span className="inline-flex items-center gap-1 text-[var(--color-muted)]">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-muted)]" />
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-muted)] [animation-delay:150ms]" />

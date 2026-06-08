@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 import secrets
 import time
-from collections import defaultdict
 from dataclasses import dataclass
 
 import jwt
@@ -14,6 +13,7 @@ from argon2.exceptions import VerifyMismatchError
 from fastapi import HTTPException, status
 
 from app.core.config import settings
+from app.core.rate_limit import count as rate_limit_count, record as rate_limit_record
 from app.db import user_queries as uq
 from app.db.query_context import ADMIN_ROLE, LEGACY_ADMIN_USER_ID, QueryContext, USER_ROLE
 from app.db.user_models import User
@@ -21,7 +21,6 @@ from app.db.user_models import User
 _ph = PasswordHasher()
 # Allow bootstrap/dev addresses such as admin@localhost (no TLD required).
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+$")
-_login_attempts: dict[str, list[float]] = defaultdict(list)
 
 REFRESH_COOKIE = "openclaw_refresh"
 
@@ -69,25 +68,26 @@ def validate_email(email: str) -> None:
 
 
 def _check_login_rate_limit(key: str) -> None:
-    now = time.monotonic()
     window = float(settings.login_lockout_seconds)
-    attempts = _login_attempts[key]
-    _login_attempts[key] = [t for t in attempts if now - t < window]
-    if len(_login_attempts[key]) >= settings.login_max_attempts:
+    bucket = f"login-fail:{key}"
+    if rate_limit_count(bucket, window_seconds=window) >= settings.login_max_attempts:
         raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
 
 
 def _record_login_failure(key: str) -> None:
-    _login_attempts[key].append(time.monotonic())
+    rate_limit_record(f"login-fail:{key}", window_seconds=float(settings.login_lockout_seconds))
 
 
 def user_to_public(user: User) -> dict:
+    from app.db.demo_guard import is_demo_user
+
     return {
         "id": user.id,
         "email": user.email,
         "username": user.username,
         "role": user.role,
         "status": user.status,
+        "is_demo": is_demo_user(user),
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "last_login_at": user.last_login_at.isoformat() if user.last_login_at else None,
     }
@@ -147,6 +147,11 @@ def register_user(*, email: str, username: str, password: str) -> tuple[User, To
     validate_email(email)
     validate_username(username)
     validate_password_strength(password)
+
+    from app.db.demo_guard import is_demo_email
+
+    if is_demo_email(email):
+        raise HTTPException(status_code=409, detail="该邮箱为演示账号保留，请使用其他邮箱注册")
 
     uq.ensure_user_tables()
     if uq.get_user_by_email(email):

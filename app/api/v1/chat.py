@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import time
-from collections import deque
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -9,6 +8,7 @@ from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, st
 
 from app.core.auth_service import REFRESH_COOKIE
 from app.core.config import settings
+from app.core.rate_limit import allow as rate_limit_allow
 from app.core.security import (
     PORTAL_SESSION_COOKIE,
     CurrentUser,
@@ -43,8 +43,6 @@ router = APIRouter(
 _CANCEL_SUFFIX = "\n\n---\n\n（已停止生成）"
 _TIMEOUT_SUFFIX = "\n\n---\n\n（响应超时，可点击「停止」后重试或缩短问题）"
 
-# Per-user sliding window rate limit (across WS connections)
-_user_message_times: dict[str, deque[float]] = {}
 _user_rate_lock = asyncio.Lock()
 
 
@@ -73,15 +71,9 @@ def _validate_client_session_key(session_key: str) -> bool:
 
 async def _check_user_rate_limit(user_id: str) -> bool:
     limit = max(1, int(settings.chat_user_messages_per_minute))
-    now = time.monotonic()
+    bucket = f"chat-user:{user_id}"
     async with _user_rate_lock:
-        times = _user_message_times.setdefault(user_id, deque())
-        while times and times[0] < now - 60.0:
-            times.popleft()
-        if len(times) >= limit:
-            return False
-        times.append(now)
-    return True
+        return rate_limit_allow(bucket, limit=limit)
 
 
 async def _safe_send_json(
@@ -326,7 +318,10 @@ async def get_chat_run(session_key: str, user: CurrentUser) -> dict[str, Any]:
 
 @router.websocket("/ws")
 async def chat_ws(websocket: WebSocket) -> None:
-    bearer = websocket.query_params.get("token")
+    if settings.production_mode and websocket.query_params.get("token"):
+        await websocket.close(code=1008, reason="Unauthorized")
+        return
+    bearer = None if settings.production_mode else websocket.query_params.get("token")
     ws_user = resolve_websocket_user(
         header_api_key=websocket.headers.get("x-api-key"),
         portal_cookie=websocket.cookies.get(PORTAL_SESSION_COOKIE),
@@ -341,7 +336,7 @@ async def chat_ws(websocket: WebSocket) -> None:
     owner_user_id = str(ws_user.id)
     portal_role = ws_user.role
     send_lock = asyncio.Lock()
-    message_times: deque[float] = deque()
+    connection_bucket = f"ws-conn:{owner_user_id}:{id(websocket)}"
     msg_limit = max(1, int(settings.ws_messages_per_minute))
 
     async def publish(payload: dict[str, Any]) -> None:
@@ -376,10 +371,7 @@ async def chat_ws(websocket: WebSocket) -> None:
             if msg_type != "user_message":
                 continue
 
-            now = time.monotonic()
-            while message_times and message_times[0] < now - 60.0:
-                message_times.popleft()
-            if len(message_times) >= msg_limit:
+            if not rate_limit_allow(connection_bucket, limit=msg_limit):
                 await publish(
                     {
                         "type": "assistant_error",
@@ -459,7 +451,6 @@ async def chat_ws(websocket: WebSocket) -> None:
                 )
                 continue
 
-            message_times.append(now)
             try:
                 record = await chat_run_store.begin_run(
                     owner_user_id=owner_user_id,

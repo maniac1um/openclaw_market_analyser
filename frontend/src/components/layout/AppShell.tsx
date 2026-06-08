@@ -1,17 +1,18 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Loader2, LogOut, Menu, Moon, Sun, FileText, User, Settings, X } from 'lucide-react'
+import { Loader2, LogOut, Menu, Moon, Sun, FileText, User, Settings, X, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { cn } from '../../lib/utils'
 import { useAuth } from '../../lib/AuthContext'
 import { useChat } from '../../features/chat/ChatProvider'
+import { useOnboarding } from '../../features/onboarding/OnboardingProvider'
 
 const nav = [
-  { to: '/', label: '首页' },
-  { to: '/reports', label: '专题分析' },
-  { to: '/news', label: '新闻动态' },
-  { to: '/price-trend', label: '价格趋势' },
-  { to: '/keyword-tracking', label: '关键词追踪' },
-  { to: '/workflow', label: '工作流' },
+  { to: '/app', label: '首页' },
+  { to: '/app/reports', label: '专题分析' },
+  { to: '/app/news', label: '新闻动态' },
+  { to: '/app/price-trend', label: '价格趋势' },
+  { to: '/app/keyword-tracking', label: '关键词追踪' },
+  { to: '/app/workflow', label: '工作流' },
 ]
 
 function NavLinkItem({
@@ -28,7 +29,7 @@ function NavLinkItem({
   return (
     <NavLink
       to={item.to}
-      end={item.to === '/'}
+      end={item.to === '/app'}
       onClick={onNavigate}
       className={({ isActive }) =>
         cn(
@@ -46,7 +47,7 @@ function NavLinkItem({
       }
     >
       {item.label}
-      {item.to === '/' && chatBusy ? (
+      {item.to === '/app' && chatBusy ? (
         <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-accent)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-accent)]">
           <Loader2 className="h-3 w-3 animate-spin" />
           生成中
@@ -60,8 +61,9 @@ export function AppShell() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
+  const { openGuide } = useOnboarding()
   const { pendingSessionKeys } = useChat()
-  const isChatHome = location.pathname === '/'
+  const isChatHome = location.pathname === '/app'
   const chatBusy = pendingSessionKeys.length > 0
   const [dark, setDark] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -109,7 +111,7 @@ export function AppShell() {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <Link to="/" className="flex min-w-0 items-center gap-2 text-sm font-semibold tracking-tight">
+            <Link to="/app" className="flex min-w-0 items-center gap-2 text-sm font-semibold tracking-tight">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--color-accent)] text-white">
                 <FileText className="h-4 w-4" />
               </span>
@@ -140,12 +142,25 @@ export function AppShell() {
                       <div className="border-b border-[var(--color-border)] px-3 py-2 text-xs text-[var(--color-muted)]">
                         {user.email}
                       </div>
+                      {!user.is_demo ? (
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-2.5 text-sm hover:bg-[var(--color-bg)]"
+                          onClick={() => {
+                            setUserMenuOpen(false)
+                            openGuide()
+                          }}
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          新手引导
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         className="flex w-full items-center gap-2 px-3 py-2.5 text-sm hover:bg-[var(--color-bg)]"
                         onClick={() => {
                           setUserMenuOpen(false)
-                          navigate('/account')
+                          navigate('/app/account')
                         }}
                       >
                         <Settings className="h-4 w-4" />
@@ -195,6 +210,14 @@ export function AppShell() {
           </ul>
         </nav>
       </header>
+      {user?.is_demo ? (
+        <div className={cn('border-b border-amber-200 bg-amber-50 py-2 text-center text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200', shellPadding)}>
+          演示账号 · 只读环境 ·{' '}
+          <Link to="/register" className="font-medium underline">
+            注册正式账号
+          </Link>
+        </div>
+      ) : null}
 
       {navDrawerOpen ? (
         <div className="fixed inset-0 z-50 md:hidden">

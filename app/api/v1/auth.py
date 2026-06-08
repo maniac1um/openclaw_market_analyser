@@ -10,7 +10,14 @@ from app.core.auth_service import (
     user_to_public,
 )
 from app.core.config import settings
-from app.core.security import CurrentUser, get_current_user, verify_user_api_key
+from app.core.security import (
+    CurrentUser,
+    clear_csrf_cookie,
+    get_current_user,
+    issue_csrf_token,
+    set_csrf_cookie,
+    verify_user_api_key,
+)
 from app.db import user_queries as uq
 from app.db.user_models import User
 from app.schemas.auth import (
@@ -27,24 +34,36 @@ router = APIRouter(tags=["auth"])
 
 
 def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
-    response.set_cookie(
-        key=REFRESH_COOKIE,
-        value=refresh_token,
-        httponly=True,
-        samesite="lax",
-        max_age=settings.jwt_refresh_ttl_seconds,
-        path="/",
-    )
+    kwargs: dict = {
+        "key": REFRESH_COOKIE,
+        "value": refresh_token,
+        "httponly": True,
+        "samesite": "lax",
+        "max_age": settings.jwt_refresh_ttl_seconds,
+        "path": "/",
+        "secure": settings.cookie_secure,
+    }
+    if settings.cookie_domain:
+        kwargs["domain"] = settings.cookie_domain
+    response.set_cookie(**kwargs)
 
 
 def _clear_refresh_cookie(response: Response) -> None:
-    response.delete_cookie(key=REFRESH_COOKIE, path="/")
+    kwargs: dict = {"key": REFRESH_COOKIE, "path": "/"}
+    if settings.cookie_domain:
+        kwargs["domain"] = settings.cookie_domain
+    response.delete_cookie(**kwargs)
+
+
+def _issue_auth_cookies(response: Response, refresh_token: str) -> None:
+    _set_refresh_cookie(response, refresh_token)
+    set_csrf_cookie(response, issue_csrf_token())
 
 
 @router.post("/public/auth/register", response_model=AuthResponse, summary="用户注册")
 def auth_register(payload: RegisterRequest, response: Response) -> AuthResponse:
     user, tokens = register_user(email=payload.email, username=payload.username, password=payload.password)
-    _set_refresh_cookie(response, tokens.refresh_token)
+    _issue_auth_cookies(response, tokens.refresh_token)
     return AuthResponse(
         user=UserPublic(**user_to_public(user)),
         access_token=tokens.access_token,
@@ -56,7 +75,7 @@ def auth_register(payload: RegisterRequest, response: Response) -> AuthResponse:
 def auth_login(payload: LoginRequest, request: Request, response: Response) -> AuthResponse:
     ip = request.client.host if request.client else None
     user, tokens = login_user(email=payload.email, password=payload.password, ip=ip)
-    _set_refresh_cookie(response, tokens.refresh_token)
+    _issue_auth_cookies(response, tokens.refresh_token)
     return AuthResponse(
         user=UserPublic(**user_to_public(user)),
         access_token=tokens.access_token,
@@ -70,7 +89,7 @@ def auth_refresh(request: Request, response: Response) -> AuthResponse:
     if not refresh:
         raise HTTPException(status_code=401, detail="Missing refresh token")
     tokens, user = refresh_access_token(refresh)
-    _set_refresh_cookie(response, tokens.refresh_token)
+    _issue_auth_cookies(response, tokens.refresh_token)
     return AuthResponse(
         user=UserPublic(**user_to_public(user)),
         access_token=tokens.access_token,
@@ -83,6 +102,7 @@ def auth_logout(request: Request, response: Response) -> dict:
     refresh = request.cookies.get(REFRESH_COOKIE)
     logout_user(refresh)
     _clear_refresh_cookie(response)
+    clear_csrf_cookie(response)
     return {"ok": True}
 
 
@@ -104,13 +124,18 @@ def auth_status(request: Request) -> dict:
 
 @router.post("/public/auth/session", summary="Legacy: API Key 换会话（兼容旧 SPA dev bootstrap）")
 def auth_session_legacy(response: Response, user: User = Depends(verify_user_api_key)) -> dict:
+    if settings.production_mode:
+        raise HTTPException(status_code=403, detail="Legacy session exchange disabled in production")
     tokens = issue_tokens(user)
-    _set_refresh_cookie(response, tokens.refresh_token)
+    _issue_auth_cookies(response, tokens.refresh_token)
     return {"ok": True, "expires_in_seconds": settings.jwt_refresh_ttl_seconds, "access_token": tokens.access_token}
 
 
 @router.post("/public/auth/api-keys", response_model=ApiKeyCreatedResponse, summary="生成 OpenClaw API Key")
 def auth_create_api_key(payload: ApiKeyCreateRequest, user: CurrentUser) -> ApiKeyCreatedResponse:
+    from app.db.demo_guard import reject_demo_write
+
+    reject_demo_write(user)
     raw, record = uq.create_api_key(user_id=user.id, label=payload.label)
     return ApiKeyCreatedResponse(
         id=record.id,
@@ -137,6 +162,9 @@ def auth_list_api_keys(user: CurrentUser) -> list[ApiKeyListItem]:
 
 @router.delete("/public/auth/api-keys/{key_id}", summary="撤销 API Key")
 def auth_revoke_api_key(key_id: str, user: CurrentUser) -> dict:
+    from app.db.demo_guard import reject_demo_write
+
+    reject_demo_write(user)
     ok = uq.revoke_api_key(user_id=user.id, key_id=key_id)
     if not ok:
         raise HTTPException(status_code=404, detail="API key not found")

@@ -2,6 +2,7 @@
 
 | 分区 | 受众 | 入口 |
 |------|------|------|
+| [project-brain/](project-brain/README.md) | 新工程师 onboarding | 30 分钟项目地图 |
 | [human/](human/README.md) | 人类工程师 | 部署、开发、API、运维 |
 | [openclaw/](openclaw/README.md) | OpenClaw Gateway 运行时 | 指向 `skills/` |
 | [reports/](reports/README.md) | 审计溯源 | 安全报告快照 |

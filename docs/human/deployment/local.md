@@ -1,5 +1,7 @@
 # 部署指南
 
+> **第一次部署？** 零基础 1 小时路径见 **[getting-started.md](getting-started.md)**（Docker 推荐）。
+>
 > **生产 / 云服务器部署**（Docker、systemd、Nginx、TLS、防火墙）见 **[production.md](production.md)**。本文档侧重本地开发与快速验证。
 >
 > **Android 内测 APK**（Capacitor，本机构建）：见 **[android-app.md](../mobile/android-app.md)**（`apk-test` 分支）。
@@ -19,6 +21,13 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 ```bash
 bash scripts/local/start-server.sh
+```
+
+磁盘清理（缓存、Skill 临时文件，默认 dry-run）：
+
+```bash
+bash scripts/local/cleanup.sh          # 预览
+bash scripts/local/cleanup.sh --apply  # 执行
 ```
 
 ### 2. 前端（开发模式）

@@ -127,6 +127,14 @@ def api_key_headers(user: AuthTestUser) -> dict[str, str]:
     return {"X-Api-Key": user.api_key}
 
 
+def cookie_write_headers(client: TestClient) -> dict[str, str]:
+    """Headers for cookie-authenticated writes (includes CSRF double-submit token)."""
+    csrf = client.cookies.get("openclaw_csrf")
+    if csrf:
+        return {"X-CSRF-Token": csrf}
+    return {}
+
+
 def login_access_token(user: AuthTestUser, *, client: TestClient | None = None) -> str:
     c = client or TestClient(app)
     resp = c.post(

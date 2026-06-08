@@ -24,7 +24,8 @@
     "react-router-dom": "^7.16.0",
     "remark-gfm": "^4.0.1",
     "sonner": "^2.0.7",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "uplot": "^1.6.32"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.4.0",

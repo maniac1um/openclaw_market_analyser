@@ -7,6 +7,9 @@ from app.main import app
 from app.services.report_management_service import ReportManagementService
 
 
+from tests.api.conftest import cookie_write_headers
+
+
 def test_public_write_requires_credentials() -> None:
     client = TestClient(app)
     resp = client.post(
@@ -33,8 +36,20 @@ def test_portal_session_cookie_authorizes_write(api_headers: dict[str, str]) -> 
     resp = client.post(
         "/api/v1/public/reports/bulk-delete",
         json={"ingest_ids": ["00000000-0000-0000-0000-000000000001"]},
+        headers=cookie_write_headers(client),
     )
     assert resp.status_code in {200, 503}
+
+
+def test_cookie_write_without_csrf_rejected(api_headers: dict[str, str]) -> None:
+    client = TestClient(app)
+    session = client.post("/api/v1/public/auth/session", headers=api_headers)
+    assert session.status_code == 200
+    resp = client.post(
+        "/api/v1/public/reports/bulk-delete",
+        json={"ingest_ids": ["00000000-0000-0000-0000-000000000001"]},
+    )
+    assert resp.status_code == 403
 
 
 def test_public_read_requires_auth_or_api_key(api_headers: dict[str, str]) -> None:
@@ -98,6 +113,7 @@ def test_bulk_delete_invalid_uuid_rejected_at_schema(api_headers: dict[str, str]
     resp = client.post(
         "/api/v1/public/reports/bulk-delete",
         json={"ingest_ids": ["../../../etc/passwd"]},
+        headers=cookie_write_headers(client),
     )
     assert resp.status_code == 422
 

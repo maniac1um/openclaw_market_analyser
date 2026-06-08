@@ -5,6 +5,9 @@ from app.core.startup_checks import validate_security_config
 from app.main import app
 
 
+from tests.api.conftest import cookie_write_headers
+
+
 def test_openapi_hidden_by_default() -> None:
     client = TestClient(app)
     assert client.get("/docs").status_code == 404
@@ -42,8 +45,18 @@ def _production_base(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.core.config.settings.production_mode", True)
     monkeypatch.setattr("app.core.config.settings.openclaw_api_key", "x" * 40)
     monkeypatch.setattr("app.core.config.settings.openclaw_hmac_secret", "y" * 40)
+    monkeypatch.setattr("app.core.config.settings.jwt_secret", "z" * 40)
+    monkeypatch.setattr("app.core.config.settings.cookie_secure", True)
+    monkeypatch.setattr("app.core.config.settings.database_url", "postgresql://app:strongpass@db.example/app")
+    monkeypatch.setattr("app.core.config.settings.monitoring_database_url", "postgresql://mon:strongpass@db.example/mon")
+    monkeypatch.setattr("app.core.config.settings.news_database_url", "postgresql://news:strongpass@db.example/news")
     monkeypatch.setattr("app.core.config.settings.openclaw_enable_signature", True)
     monkeypatch.setattr("app.core.config.settings.portal_embed_api_key_in_spa", False)
+    monkeypatch.setattr("app.core.config.settings.legacy_api_key_enabled", False)
+    monkeypatch.setattr("app.core.config.settings.allow_registration", False)
+    monkeypatch.setattr("app.core.config.settings.first_user_is_admin", False)
+    monkeypatch.setattr("app.core.config.settings.demo_seed_enabled", False)
+    monkeypatch.setattr("app.db.user_queries.bootstrap_admin_uses_default_password", lambda: False)
 
 
 def test_production_blocks_git_auto_push(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -60,6 +73,50 @@ def test_production_blocks_expose_openapi(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr("app.core.config.settings.expose_openapi", True)
     with pytest.raises(RuntimeError, match="EXPOSE_OPENAPI"):
         validate_security_config()
+
+
+def test_production_blocks_weak_jwt_secret(monkeypatch: pytest.MonkeyPatch) -> None:
+    _production_base(monkeypatch)
+    monkeypatch.setattr("app.core.config.settings.jwt_secret", "dev-jwt-secret-change-me-in-production")
+    monkeypatch.setattr("app.core.config.settings.git_auto_push", False)
+    monkeypatch.setattr("app.core.config.settings.expose_openapi", False)
+    with pytest.raises(RuntimeError, match="JWT_SECRET"):
+        validate_security_config()
+
+
+def test_production_blocks_insecure_cookie(monkeypatch: pytest.MonkeyPatch) -> None:
+    _production_base(monkeypatch)
+    monkeypatch.setattr("app.core.config.settings.cookie_secure", False)
+    monkeypatch.setattr("app.core.config.settings.git_auto_push", False)
+    monkeypatch.setattr("app.core.config.settings.expose_openapi", False)
+    with pytest.raises(RuntimeError, match="COOKIE_SECURE"):
+        validate_security_config()
+
+
+def test_production_blocks_open_registration(monkeypatch: pytest.MonkeyPatch) -> None:
+    _production_base(monkeypatch)
+    monkeypatch.setattr("app.core.config.settings.allow_registration", True)
+    monkeypatch.setattr("app.core.config.settings.git_auto_push", False)
+    monkeypatch.setattr("app.core.config.settings.expose_openapi", False)
+    with pytest.raises(RuntimeError, match="ALLOW_REGISTRATION"):
+        validate_security_config()
+
+
+def test_production_blocks_weak_db_dsn(monkeypatch: pytest.MonkeyPatch) -> None:
+    _production_base(monkeypatch)
+    monkeypatch.setattr("app.core.config.settings.database_url", "postgresql://openclaw_app:openclaw_dev@postgres/app")
+    monkeypatch.setattr("app.core.config.settings.git_auto_push", False)
+    monkeypatch.setattr("app.core.config.settings.expose_openapi", False)
+    with pytest.raises(RuntimeError, match="DATABASE_URL"):
+        validate_security_config()
+
+
+def test_api_key_hash_uses_hmac_prefix() -> None:
+    from app.db import user_queries as uq
+
+    digest = uq.hash_api_key("oc_test_key_value")
+    assert digest.startswith("hmac:")
+    assert digest != uq.legacy_hash_api_key("oc_test_key_value")
 
 
 def test_gateway_status_sanitizes_exception_detail(monkeypatch: pytest.MonkeyPatch, api_headers: dict[str, str]) -> None:

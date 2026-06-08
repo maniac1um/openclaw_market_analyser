@@ -528,25 +528,35 @@ def save_external_scheduler_run(
     return row[0].isoformat() if row and row[0] else now
 
 
-def external_scheduler_jobs_from_db(limit: int = 120) -> list[dict]:
+def external_scheduler_jobs_from_db(limit: int = 120, *, ctx: QueryContext | None = None) -> list[dict]:
     if not settings.monitoring_database_url:
         return []
     import psycopg
 
+    clause, params = ("", ())
+    inner_clause = ""
+    if ctx is not None:
+        clause, params = ctx.monitor_owner_clause("r")
+        inner_clause, _ = ctx.owner_clause()
     ensure_external_scheduler_tables()
     with psycopg.connect(settings.monitoring_database_url) as conn, conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             SELECT r.job_name, r.status, r.monitor_id, r.message, r.last_seen_at
             FROM external_scheduler_runs r
             JOIN (
-              SELECT job_name, MAX(last_seen_at) AS mx
-              FROM external_scheduler_runs GROUP BY job_name
-            ) t ON t.job_name = r.job_name AND t.mx = r.last_seen_at
+              SELECT job_name, user_id, MAX(last_seen_at) AS mx
+              FROM external_scheduler_runs
+              WHERE 1=1{inner_clause}
+              GROUP BY job_name, user_id
+            ) t ON t.job_name = r.job_name
+               AND t.user_id IS NOT DISTINCT FROM r.user_id
+               AND t.mx = r.last_seen_at
+            WHERE 1=1{clause}
             ORDER BY r.last_seen_at DESC
             LIMIT %s
             """,
-            (int(limit),),
+            (*params, *params, int(limit)),
         )
         rows = cur.fetchall()
     return [
@@ -561,11 +571,13 @@ def external_scheduler_jobs_from_db(limit: int = 120) -> list[dict]:
     ]
 
 
-def external_scheduler_jobs_public(app_obj: FastAPI) -> dict:
-    out = external_scheduler_jobs_from_db(limit=120)
+def external_scheduler_jobs_public(app_obj: FastAPI, *, ctx: QueryContext | None = None) -> dict:
+    out = external_scheduler_jobs_from_db(limit=120, ctx=ctx)
     if not out:
         jobs = getattr(app_obj.state, "external_scheduler_jobs", {})
         for job_name, item in jobs.items():
+            if ctx is not None and not ctx.is_admin and str(item.get("user_id") or "") != ctx.user_id:
+                continue
             out.append(
                 {
                     "job_name": job_name,
@@ -759,7 +771,7 @@ def openclaw_gateway_status_public() -> dict:
 
 
 def openclaw_work_overview_public(app_obj: FastAPI, ctx: QueryContext | None = None) -> dict:
-    ext = external_scheduler_jobs_public(app_obj)
+    ext = external_scheduler_jobs_public(app_obj, ctx=ctx)
     jobs = ext.get("jobs") or []
 
     reports_clause, reports_params = ("", ())
@@ -927,7 +939,7 @@ def check_postgres_dsn_public(*, key: str, label: str, dsn: str | None) -> dict:
         }
 
 
-def workflow_diagnostics_public(app_obj: FastAPI) -> dict:
+def workflow_diagnostics_public(app_obj: FastAPI, *, ctx: QueryContext) -> dict:
     checked_at = datetime.now(timezone.utc).isoformat()
     checks: list[dict] = []
     gateway = openclaw_gateway_status_public()
@@ -946,7 +958,7 @@ def workflow_diagnostics_public(app_obj: FastAPI) -> dict:
     checks.append(check_postgres_dsn_public(key="openclaw_monitoring_database_url", label="价格数据库（openclaw_monitor）", dsn=settings.monitoring_database_url))
     checks.append(check_postgres_dsn_public(key="openclaw_news_database_url", label="新闻数据库（openclaw_news）", dsn=settings.news_database_url))
 
-    configs = external_scheduler_configs_public().get("configs", [])
+    configs = external_scheduler_configs_public(ctx=ctx).get("configs", [])
     enabled_configs = [row for row in configs if bool(row.get("enabled"))]
     checks.append(
         {
@@ -958,7 +970,7 @@ def workflow_diagnostics_public(app_obj: FastAPI) -> dict:
             "hint": "建议至少配置 1 个外部调度任务，并绑定 monitor_id",
         }
     )
-    recent_runs = external_scheduler_run_history_public(limit=1).get("runs", [])
+    recent_runs = external_scheduler_run_history_public(limit=1, ctx=ctx).get("runs", [])
     if not recent_runs:
         checks.append(
             {
@@ -988,16 +1000,27 @@ def workflow_diagnostics_public(app_obj: FastAPI) -> dict:
     return {"checked_at": checked_at, "ok": errors == 0, "error_count": errors, "warn_count": warns, "checks": checks}
 
 
-def workflow_run_readiness_public(app_obj: FastAPI, monitor_id: str | None = None) -> dict:
+def workflow_run_readiness_public(
+    app_obj: FastAPI,
+    monitor_id: str | None = None,
+    *,
+    ctx: QueryContext,
+) -> dict:
+    from fastapi import HTTPException
+
     from app.services.news_analysis_service import build_news_price_analysis
 
     checked_at = datetime.now(timezone.utc).isoformat()
     checks: list[dict] = []
-    overview = openclaw_work_overview_public(app_obj)
-    selected_monitor_id = (
-        (monitor_id or "").strip()
-        or str(((overview.get("price_monitoring") or {}).get("recent") or [{}])[0].get("monitor_id") or "").strip()
-    )
+    if monitor_id and monitor_id.strip():
+        selected_monitor_id = monitor_id.strip()
+        if not monitor_accessible(selected_monitor_id, ctx):
+            raise HTTPException(status_code=404, detail="Monitor not found")
+    else:
+        overview = openclaw_work_overview_public(app_obj, ctx=ctx)
+        selected_monitor_id = str(
+            ((overview.get("price_monitoring") or {}).get("recent") or [{}])[0].get("monitor_id") or ""
+        ).strip()
     gateway = openclaw_gateway_status_public()
     checks.append(
         {
@@ -1070,7 +1093,7 @@ def workflow_run_readiness_public(app_obj: FastAPI, monitor_id: str | None = Non
                     "hint": "确认 monitor_id 是否存在且 monitoring DB 可访问",
                 }
             )
-    configs = external_scheduler_configs_public().get("configs", [])
+    configs = external_scheduler_configs_public(ctx=ctx).get("configs", [])
     monitor_cfg = [
         row for row in configs if str(row.get("monitor_id") or "").strip() == selected_monitor_id and bool(row.get("enabled"))
     ]
@@ -1084,7 +1107,7 @@ def workflow_run_readiness_public(app_obj: FastAPI, monitor_id: str | None = Non
             "hint": "建议至少存在 1 条 enabled 调度配置，确保持续采集",
         }
     )
-    recent_runs = external_scheduler_run_history_public(limit=200).get("runs", [])
+    recent_runs = external_scheduler_run_history_public(limit=200, ctx=ctx).get("runs", [])
     monitor_runs = [row for row in recent_runs if str(row.get("monitor_id") or "").strip() == selected_monitor_id]
     if not monitor_runs:
         checks.append(
@@ -1121,6 +1144,7 @@ def workflow_run_readiness_public(app_obj: FastAPI, monitor_id: str | None = Non
             window_days=7,
             news_hours=72,
             horizon="24h",
+            ctx=ctx,
         )
         checks.append(
             {

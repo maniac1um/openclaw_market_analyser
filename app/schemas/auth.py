@@ -34,6 +34,7 @@ class UserPublic(BaseModel):
     username: str
     role: str
     status: str
+    is_demo: bool = False
     created_at: str | None = None
     last_login_at: str | None = None
 

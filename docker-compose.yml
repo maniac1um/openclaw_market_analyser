@@ -6,9 +6,9 @@ services:
     env_file:
       - .env
     environment:
-      OPENCLAW_DATABASE_URL: ${OPENCLAW_DATABASE_URL:-postgresql://openclaw_app:openclaw_dev@postgres:5432/openclaw_app}
-      OPENCLAW_MONITORING_DATABASE_URL: ${OPENCLAW_MONITORING_DATABASE_URL:-postgresql://openclaw_monitor:openclaw_dev@postgres:5432/openclaw_monitor}
-      OPENCLAW_NEWS_DATABASE_URL: ${OPENCLAW_NEWS_DATABASE_URL:-postgresql://openclaw_news:openclaw_dev@postgres:5432/openclaw_news}
+      OPENCLAW_DATABASE_URL: ${OPENCLAW_DATABASE_URL:?Set OPENCLAW_DATABASE_URL for production-like deploys}
+      OPENCLAW_MONITORING_DATABASE_URL: ${OPENCLAW_MONITORING_DATABASE_URL:?Set OPENCLAW_MONITORING_DATABASE_URL}
+      OPENCLAW_NEWS_DATABASE_URL: ${OPENCLAW_NEWS_DATABASE_URL:?Set OPENCLAW_NEWS_DATABASE_URL}
       OPENCLAW_STATE_DIR: /openclaw-state
       OPENCLAW_GATEWAY_STATE_DIR: ${OPENCLAW_GATEWAY_STATE_DIR:-/openclaw-state}
       OPENCLAW_GATEWAY_PORTAL_STATE_DIR: ${OPENCLAW_GATEWAY_PORTAL_STATE_DIR:-/openclaw-portal-state}
@@ -31,8 +31,8 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: openclaw
-      # Override in production: POSTGRES_PASSWORD=<strong-random>
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-openclaw_dev}
+      # Dev-only default — override POSTGRES_PASSWORD in production (startup_checks rejects openclaw_dev DSNs).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     # No host port mapping by default — DB reachable only on the Docker network.
     volumes:
       - pgdata:/var/lib/postgresql/data

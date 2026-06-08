@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Trash2, Search } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
@@ -10,12 +10,15 @@ import { Button } from '../components/ui/Button'
 import { MobileBackButton } from '../components/ui/MobileBackButton'
 import { Skeleton, ErrorBanner, EmptyState } from '../components/ui/States'
 import { ReportDetailView } from '../features/reports/ReportDetail'
+import { useOnboardingActive } from '../features/onboarding/OnboardingProvider'
+import { ONBOARDING_EVENTS } from '../features/onboarding/types'
 
 export function ReportsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [keyword, setKeyword] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const queryClient = useQueryClient()
+  const onboardingActive = useOnboardingActive()
 
   const activeId = searchParams.get('id') || undefined
   const showList = !activeId
@@ -56,7 +59,16 @@ export function ReportsPage() {
 
   const pickReport = (id: string) => {
     setSearchParams({ id })
+    window.dispatchEvent(new CustomEvent(ONBOARDING_EVENTS.reportViewed))
   }
+
+  useEffect(() => {
+    const onboarding = searchParams.get('onboarding')
+    const list = reportsQuery.data
+    if (onboarding !== 'step4' || activeId || !list?.length) return
+    setSearchParams({ id: list[0].ingest_id, onboarding: 'step4' })
+    window.dispatchEvent(new CustomEvent(ONBOARDING_EVENTS.reportViewed))
+  }, [searchParams, activeId, reportsQuery.data, setSearchParams])
 
   const backToList = () => setSearchParams({})
 
@@ -111,7 +123,21 @@ export function ReportsPage() {
         </div>
         <ul className="max-h-none flex-1 overflow-y-auto lg:max-h-[calc(100vh-220px)]">
           {!filtered.length ? (
-            <EmptyState title="暂无报告" description="让 OpenClaw 提交分析报告后将在此展示" />
+            <EmptyState
+              title="暂无报告"
+              description="让 OpenClaw 提交分析报告后将在此展示"
+              action={
+                onboardingActive ? (
+                  <Link to="/app/workflow?onboarding=step3">
+                    <Button variant="primary">查看工作流调度</Button>
+                  </Link>
+                ) : (
+                  <Link to="/#sample-report">
+                    <Button variant="secondary">查看虚构示例报告</Button>
+                  </Link>
+                )
+              }
+            />
           ) : (
             filtered.map((r) => (
               <li key={r.ingest_id}>
@@ -159,7 +185,9 @@ export function ReportsPage() {
         ) : detailQuery.data ? (
           <>
             <MobileBackButton onClick={backToList} />
-            <ReportDetailView report={detailQuery.data} />
+            <div data-onboarding="report-detail">
+              <ReportDetailView report={detailQuery.data} />
+            </div>
           </>
         ) : null}
       </div>

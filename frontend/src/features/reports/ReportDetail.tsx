@@ -1,10 +1,9 @@
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
+import { MarkdownContent } from '../../components/markdown/MarkdownContent'
 import type { ReportDetail as ReportDetailType } from '../../lib/api'
 import { deriveInsights } from '../../lib/insights'
-import { safeExternalHref, markdownUrlTransform } from '../../lib/urlSafety'
+import { safeExternalHref } from '../../lib/urlSafety'
 import { formatCnDateTime } from '../../lib/utils'
 import { InsightGrid } from './InsightGrid'
 import { ReportTimeline } from './ReportTimeline'
@@ -54,10 +53,10 @@ export function ReportDetailView({ report }: { report: ReportDetailType }) {
         <CardHeader>
           <CardTitle>AI 结论</CardTitle>
         </CardHeader>
-        <CardContent className="prose-report text-sm">
-          <ReactMarkdown remarkPlugins={[remarkGfm]} urlTransform={markdownUrlTransform}>
-            {report.analysis || '暂无分析内容'}
-          </ReactMarkdown>
+        <CardContent>
+          <MarkdownContent className="text-sm">
+            {report.report_markdown || report.analysis || '暂无分析内容'}
+          </MarkdownContent>
         </CardContent>
       </Card>
 

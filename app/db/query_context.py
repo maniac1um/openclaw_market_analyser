@@ -8,6 +8,12 @@ LEGACY_ADMIN_USER_ID = "00000000-0000-0000-0000-000000000001"
 
 @dataclass(frozen=True)
 class QueryContext:
+    """Request-scoped tenant filter for DB queries.
+
+    ADMIN role bypasses owner_clause filters (single-tenant operator model).
+    Multi-tenant SaaS with scoped admin/API keys is a future product extension (ISSUE-019).
+    """
+
     user_id: str
     role: str
 

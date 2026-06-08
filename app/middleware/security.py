@@ -1,5 +1,3 @@
-import time
-from collections import defaultdict, deque
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -8,6 +6,7 @@ from starlette.responses import JSONResponse, Response
 from starlette.requests import ClientDisconnect
 
 from app.core.config import settings
+from app.core.rate_limit import allow as rate_limit_allow
 
 
 class BodyTooLarge(Exception):
@@ -82,10 +81,6 @@ class MaxBodySizeMiddleware(BaseHTTPMiddleware):
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app) -> None:
-        super().__init__(app)
-        self._hits: dict[str, deque[float]] = defaultdict(deque)
-
     @staticmethod
     def _client_key(request: Request) -> str:
         if settings.trust_x_forwarded_for:
@@ -95,17 +90,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if request.client:
             return request.client.host
         return "unknown"
-
-    def _allow(self, key: str, *, limit: int) -> bool:
-        now = time.monotonic()
-        window_start = now - 60.0
-        bucket = self._hits[key]
-        while bucket and bucket[0] < window_start:
-            bucket.popleft()
-        if len(bucket) >= limit:
-            return False
-        bucket.append(now)
-        return True
 
     async def dispatch(self, request: Request, call_next) -> Response:
         if not settings.rate_limit_enabled:
@@ -117,12 +101,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         client = self._client_key(request)
         is_write = request.method in {"POST", "PUT", "PATCH", "DELETE"}
-        bucket_key = f"{client}:{'write' if is_write else 'read'}"
+        bucket_key = f"http:{client}:{'write' if is_write else 'read'}"
         limit = (
             max(1, int(settings.rate_limit_write_per_minute))
             if is_write
             else max(1, int(settings.rate_limit_read_per_minute))
         )
-        if not self._allow(bucket_key, limit=limit):
+        if not rate_limit_allow(bucket_key, limit=limit):
             return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded"})
         return await call_next(request)

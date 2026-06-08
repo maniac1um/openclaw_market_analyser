@@ -66,6 +66,7 @@ open http://localhost:5173
 
 生产单体部署：`cd frontend && npm run build && uvicorn app.main:app --port 8000`
 
+- **首次部署（1 小时）**：[docs/human/deployment/getting-started.md](docs/human/deployment/getting-started.md)
 - 本地开发：[docs/human/deployment/local.md](docs/human/deployment/local.md)
 - 服务器 / 生产：[docs/human/deployment/production.md](docs/human/deployment/production.md)
 - **Android 内测 APK**：[docs/human/mobile/android-app.md](docs/human/mobile/android-app.md)（`apk-test` 分支）
@@ -108,10 +109,13 @@ skills/        # OpenClaw Gateway 运行时 Skill（权威路径）
 
 ## 文档入口
 
+**30 分钟 onboarding**：[docs/project-brain/PROJECT_MAP.md](docs/project-brain/PROJECT_MAP.md)
+
 **完整文档地图**：[docs/PROJECT_DOCUMENT_INDEX.md](docs/PROJECT_DOCUMENT_INDEX.md)
 
 | 受众 | 入口 |
 |------|------|
+| 新加入工程师 | [docs/project-brain/](docs/project-brain/README.md) → [human/README.md](docs/human/README.md) |
 | 人类工程师 | [docs/human/README.md](docs/human/README.md) |
 | OpenClaw 运行时 | [docs/openclaw/README.md](docs/openclaw/README.md) → `skills/` |
 | Cursor 开发辅助 | [docs/AGENT_DOCUMENTATION_RULES.md](docs/AGENT_DOCUMENTATION_RULES.md) |
@@ -129,6 +133,7 @@ pytest -q
 | `scripts/local/start-server.sh` | 后台启动 uvicorn |
 | `scripts/local/stop-server.sh` | 停止服务 |
 | `scripts/local/verify-openclaw-databases.sh` | 三库连通性检查 |
+| `scripts/local/cleanup.sh` | 安全清理缓存与临时文件（`--apply` 执行删除） |
 | `scripts/deploy/one-click-docker.sh` | Docker 一键部署（应用 + PostgreSQL） |
 | `scripts/deploy/one-click-linux.sh` | Linux 裸机一键部署（不含 PostgreSQL） |
 

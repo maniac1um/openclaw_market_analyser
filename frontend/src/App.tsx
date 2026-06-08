@@ -14,6 +14,8 @@ import { KeywordTrackingPage } from './pages/KeywordTrackingPage'
 import { AccountPage } from './pages/AccountPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { LandingOrRedirect } from './pages/LandingOrRedirect'
+import { OnboardingProvider } from './features/onboarding/OnboardingProvider'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,27 +23,46 @@ const queryClient = new QueryClient({
   },
 })
 
+const legacyRedirects = [
+  '/reports',
+  '/news',
+  '/price-trend',
+  '/workflow',
+  '/keyword-tracking',
+  '/account',
+  '/topic-analysis',
+] as const
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
           <Routes>
+            <Route path="/" element={<LandingOrRedirect />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            {legacyRedirects.map((from) => (
+              <Route
+                key={from}
+                path={from}
+                element={<Navigate to={`/app${from === '/topic-analysis' ? '/reports' : from}`} replace />}
+              />
+            ))}
             <Route element={<ProtectedRoute />}>
-              <Route element={<ChatProvider><AppShell /></ChatProvider>}>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/reports" element={<ReportsPage />} />
-                <Route path="/topic-analysis" element={<Navigate to="/reports" replace />} />
-                <Route path="/news" element={<NewsPage />} />
-                <Route path="/price-trend" element={<PriceTrendPage />} />
-                <Route path="/workflow" element={<WorkflowPage />} />
-                <Route path="/keyword-tracking" element={<KeywordTrackingPage />} />
-                <Route path="/account" element={<AccountPage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
+              <Route element={<OnboardingProvider><ChatProvider><AppShell /></ChatProvider></OnboardingProvider>}>
+                <Route path="/app" element={<HomePage />} />
+                <Route path="/app/reports" element={<ReportsPage />} />
+                <Route path="/app/topic-analysis" element={<Navigate to="/app/reports" replace />} />
+                <Route path="/app/news" element={<NewsPage />} />
+                <Route path="/app/price-trend" element={<PriceTrendPage />} />
+                <Route path="/app/workflow" element={<WorkflowPage />} />
+                <Route path="/app/keyword-tracking" element={<KeywordTrackingPage />} />
+                <Route path="/app/account" element={<AccountPage />} />
+                <Route path="*" element={<Navigate to="/app" replace />} />
               </Route>
             </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

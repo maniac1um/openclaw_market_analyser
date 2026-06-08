@@ -54,7 +54,7 @@
 | `docs/archive/multi-user/migration-plan-2026-06-05.md` | 已实施 |
 | `docs/archive/skills/skill-refactor-plan-2026-06-06.md` | 已完成 |
 | `docs/reports/security/*` | 审计快照 |
-| `skills/SKILL_REFACTOR_PLAN.md` | 指向 archive 的 stub |
+| `docs/archive/skills/skill-refactor-plan-2026-06-06.md` | Skill 重构已完成 |
 
 ---
 

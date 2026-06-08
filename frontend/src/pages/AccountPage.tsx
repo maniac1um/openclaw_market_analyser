@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Key, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../components/ui/Button'
@@ -7,9 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { ErrorBanner } from '../components/ui/States'
 import { useAuth } from '../lib/AuthContext'
 import { api, type ApiKeyItem } from '../lib/api'
+import { ONBOARDING_EVENTS } from '../features/onboarding/types'
+import { useOnboardingActive } from '../features/onboarding/OnboardingProvider'
 
 export function AccountPage() {
   const { user } = useAuth()
+  const onboardingActive = useOnboardingActive()
   const queryClient = useQueryClient()
   const [newKey, setNewKey] = useState<string | null>(null)
   const [label, setLabel] = useState('default')
@@ -23,6 +27,7 @@ export function AccountPage() {
     mutationFn: () => api.createApiKey(label.trim() || 'default'),
     onSuccess: (data) => {
       setNewKey(data.api_key)
+      window.dispatchEvent(new CustomEvent(ONBOARDING_EVENTS.apiKeyCreated))
       void queryClient.invalidateQueries({ queryKey: ['api-keys'] })
       toast.success('API Key 已生成，请立即复制保存')
     },
@@ -78,7 +83,7 @@ export function AccountPage() {
             配置为下方生成的 Key。Key 仅展示一次，请妥善保管。
           </p>
 
-          <div className="flex flex-wrap items-end gap-2">
+          <div className="flex flex-wrap items-end gap-2" data-onboarding="api-key-create">
             <label className="flex-1 text-sm">
               <span className="mb-1 block text-[var(--color-muted)]">标签</span>
               <input
@@ -135,7 +140,19 @@ export function AccountPage() {
               </li>
             ))}
             {keysQuery.isSuccess && keysQuery.data.length === 0 && (
-              <li className="px-3 py-4 text-center text-sm text-[var(--color-muted)]">暂无 API Key</li>
+              <li className="px-3 py-4 text-center text-sm text-[var(--color-muted)]">
+                暂无 API Key
+                {onboardingActive ? (
+                  <div className="mt-3">
+                    <p className="mb-2 text-xs">Step 2（可选）：Agent 集成时使用</p>
+                    <Link to="/app/account?onboarding=step2">
+                      <Button variant="secondary" className="h-8 text-xs">
+                        了解 API Key
+                      </Button>
+                    </Link>
+                  </div>
+                ) : null}
+              </li>
             )}
           </ul>
         </CardContent>

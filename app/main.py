@@ -14,6 +14,7 @@ from app.api.v1.openclaw import router as openclaw_router
 from app.api.v1.public import router as public_router
 from app.core.config import settings
 from app.core.startup_checks import validate_security_config
+from app.middleware.csrf import CsrfMiddleware
 from app.middleware.security import MaxBodySizeMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware
 from app.services.monitoring_scheduler import MonitoringScheduler
 
@@ -93,6 +94,7 @@ def create_app() -> FastAPI:
     app.state.external_scheduler_jobs = {}
 
     app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(CsrfMiddleware)
     app.add_middleware(
         MaxBodySizeMiddleware,
         max_bytes=settings.max_request_body_bytes,
@@ -111,6 +113,7 @@ def create_app() -> FastAPI:
                 "X-Api-Key",
                 "X-Request-Id",
                 "X-Signature",
+                "X-CSRF-Token",
                 "Authorization",
             ],
         )

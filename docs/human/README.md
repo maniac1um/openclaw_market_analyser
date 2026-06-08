@@ -6,6 +6,7 @@
 
 | 场景 | 文档 |
 |------|------|
+| **首次部署（1 小时）** | [deployment/getting-started.md](deployment/getting-started.md) |
 | 本地开发 | [deployment/local.md](deployment/local.md) |
 | 生产部署 | [deployment/production.md](deployment/production.md) |
 | Gateway + Skill 挂载 | [deployment/openclaw-skills-gateway.md](deployment/openclaw-skills-gateway.md) |

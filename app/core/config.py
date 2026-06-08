@@ -70,6 +70,14 @@ class Settings(BaseSettings):
     jwt_secret: str = Field(default="dev-jwt-secret-change-me-in-production")
     jwt_access_ttl_seconds: int = Field(default=900)
     jwt_refresh_ttl_seconds: int = Field(default=604800)
+    cookie_secure: bool = Field(
+        default=False,
+        description="Set Secure flag on refresh token cookie (required in production)",
+    )
+    cookie_domain: str | None = Field(
+        default=None,
+        description="Optional Domain attribute for refresh token cookie",
+    )
     allow_registration: bool = Field(default=True)
     first_user_is_admin: bool = Field(default=True)
     legacy_api_key_enabled: bool = Field(
@@ -104,6 +112,16 @@ class Settings(BaseSettings):
     chat_user_messages_per_minute: int = Field(
         default=30,
         description="Per-user chat message rate limit across all WS connections",
+    )
+    demo_user_email: str = Field(default="demo@openclaw.local")
+    demo_user_password: str = Field(default="Demo_OpenClaw2026")
+    demo_seed_enabled: bool = Field(
+        default=True,
+        description="Seed demo trial account on startup; disable in production",
+    )
+    demo_reset_marker_path: Path = Field(
+        default=Path("content/demo/.last_reset"),
+        description="UTC date marker for daily demo data reset",
     )
 
     model_config = SettingsConfigDict(env_prefix="OPENCLAW_", env_file=".env", extra="ignore")

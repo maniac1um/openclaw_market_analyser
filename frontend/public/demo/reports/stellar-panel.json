@@ -1,0 +1,44 @@
+{
+  "ingest_id": "demo-stellar-panel",
+  "title": "虚构 · 曜光组件 — 供应链动态",
+  "keyword": "曜光组件",
+  "time_range": {
+    "start": "2026-02-01T00:00:00+08:00",
+    "end": "2026-04-30T23:59:59+08:00"
+  },
+  "generated_at": "2026-04-25T09:30:00+08:00",
+  "sources": ["虚构新能源评论", "虚构贸易监测"],
+  "items_count": 3,
+  "insights": {
+    "sentiment": "neutral",
+    "risk_level": "low",
+    "market_impact": "产业链运行平稳，波动有限",
+    "confidence": "中",
+    "forecast": "窄幅整理",
+    "news_sentiment_counts": { "bullish": 1, "bearish": 0, "neutral": 2 }
+  },
+  "analysis": "本报告为**完全虚构的演示内容**。\n\n曜光组件为编造品类，用于展示中性情绪与低风险组合。虚构新闻显示上下游协作正常，无重大扰动事件。价格维度与星云电池虚构联动弱相关。\n\n**演示用途**：帮助新用户理解 InsightGrid 多维度指标布局。",
+  "items": [
+    {
+      "title": "虚构 · 曜光演示园区扩产计划公布",
+      "source": "虚构新能源评论",
+      "published_at": "2026-04-18T10:00:00+08:00",
+      "summary": "虚构扩产消息，市场反应平淡。",
+      "url": "https://example.com/fictional/stellar-expansion"
+    },
+    {
+      "title": "虚构 · 组件封装工序自动化升级",
+      "source": "虚构贸易监测",
+      "published_at": "2026-04-12T08:00:00+08:00",
+      "summary": "虚构技改新闻，对短期价格影响有限。",
+      "url": "https://example.com/fictional/stellar-automation"
+    },
+    {
+      "title": "虚构 · 演示级物流运费指数企稳",
+      "source": "虚构新能源评论",
+      "published_at": "2026-04-05T15:00:00+08:00",
+      "summary": "虚构运费数据走平，供应链成本预期稳定。",
+      "url": "https://example.com/fictional/stellar-freight"
+    }
+  ]
+}

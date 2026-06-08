@@ -8,7 +8,36 @@
 |------|------|
 | Gateway `extraDirs` | `/path/to/repo/skills` |
 | 文档索引 | [docs/openclaw/README.md](../docs/openclaw/README.md) |
+| Skill 职责地图 | [docs/project-brain/SKILL_MAP.md](../docs/project-brain/SKILL_MAP.md) |
 | 架构总览（归档） | [docs/archive/skills/skill-refactor-plan-2026-06-06.md](../docs/archive/skills/skill-refactor-plan-2026-06-06.md) |
 | 生产部署 | [docs/human/deployment/openclaw-skills-gateway.md](../docs/human/deployment/openclaw-skills-gateway.md) |
 
 **说明**：`skills/` 面向 **OpenClaw 运行时**，不是 Cursor IDE 开发辅助指令。工程师在 Cursor 中开发本仓库请读 [docs/AGENT_DOCUMENTATION_RULES.md](../docs/AGENT_DOCUMENTATION_RULES.md)。
+
+---
+
+## 分区（软分区）
+
+Gateway 仍指向 `skills/` 根目录；下表为文档治理分区，**暂不移动物理目录**（见 ADR-007）。
+
+| 分区 | 路径 | 说明 |
+|------|------|------|
+| **production** | `openclaw-*/` | 8 个生产 Skill |
+| **shared** | `_shared/` | 共用策略（非 SKILL.md） |
+| **experimental** | — | 暂无 |
+| **deprecated** | — | 暂无 |
+
+## 生产 Skill 一览
+
+| Skill | 职责 |
+|-------|------|
+| [openclaw-conversational-assistant](openclaw-conversational-assistant/SKILL.md) | 对话入口、意图路由 |
+| [openclaw-user-workspace](openclaw-user-workspace/SKILL.md) | 用户工作区只读聚合 |
+| [openclaw-report-security](openclaw-report-security/SKILL.md) | 报告发布安全门 |
+| [openclaw-audit-events](openclaw-audit-events/SKILL.md) | 审计事件（API 预埋） |
+| [openclaw-news-publisher-enhanced](openclaw-news-publisher-enhanced/SKILL.md) | 新闻爬虫 + 报告 |
+| [openclaw-price-ingest-external](openclaw-price-ingest-external/SKILL.md) | 外采价格 ingest |
+| [openclaw-price-analysis-reporting](openclaw-price-analysis-reporting/SKILL.md) | 联合分析 |
+| [openclaw-public-news-library](openclaw-public-news-library/SKILL.md) | 新闻库 |
+
+`_shared/` 策略见 [docs/openclaw/crosswalk.md](../docs/openclaw/crosswalk.md)。

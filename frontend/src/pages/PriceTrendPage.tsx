@@ -1,93 +1,50 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Skeleton, ErrorBanner, EmptyState } from '../components/ui/States'
 import { formatCnDateTime } from '../lib/utils'
+import { ChartTimeRangePicker } from '../components/charts/ChartTimeRangePicker'
+import { PriceTrendChart } from '../components/charts/PriceTrendChart'
+import { useFilteredObservations } from '../components/charts/usePriceSeries'
+import type { ChartObservation, TimeRange } from '../components/charts/types'
 
 export function PriceTrendPage() {
-  const [monitorId, setMonitorId] = useState<string>('')
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [searchParams] = useSearchParams()
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [timeRange, setTimeRange] = useState<TimeRange>('30d')
 
   const monitorsQuery = useQuery({ queryKey: ['monitors'], queryFn: api.listMonitors })
-  const timeseriesQuery = useQuery({
-    queryKey: ['timeseries', monitorId],
-    queryFn: () => api.timeseries(monitorId, 30),
-    enabled: !!monitorId,
-  })
+
+  const monitorId = useMemo(() => {
+    const list = monitorsQuery.data || []
+    if (!list.length) return ''
+    if (selectedId && list.some((m) => m.monitor_id === selectedId)) return selectedId
+    const fromUrl = searchParams.get('monitor')
+    if (fromUrl && list.some((m) => m.monitor_id === fromUrl)) return fromUrl
+    return list[0].monitor_id
+  }, [monitorsQuery.data, selectedId, searchParams])
+
   const obsQuery = useQuery({
     queryKey: ['observations', monitorId],
-    queryFn: () => api.observations(monitorId, 100),
+    queryFn: () => api.observations(monitorId, 1000),
     enabled: !!monitorId,
   })
 
-  useEffect(() => {
-    if (!monitorsQuery.data?.length) return
-    if (!monitorId) setMonitorId(monitorsQuery.data[0].monitor_id)
-  }, [monitorsQuery.data, monitorId])
+  const allObservations = useMemo<ChartObservation[]>(() => {
+    return (obsQuery.data?.rows || [])
+      .filter((r) => r.captured_at != null && r.price != null)
+      .map((r) => ({
+        captured_at: r.captured_at!,
+        price: r.price!,
+        item_name: r.item_name,
+      }))
+  }, [obsQuery.data?.rows])
 
-  useEffect(() => {
-    const canvas = canvasRef.current
-    const points = timeseriesQuery.data?.points || []
-    if (!canvas || !points.length) return
-
-    const dpr = window.devicePixelRatio || 1
-    const rect = canvas.getBoundingClientRect()
-    canvas.width = rect.width * dpr
-    canvas.height = rect.height * dpr
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    ctx.scale(dpr, dpr)
-
-    const w = rect.width
-    const h = rect.height
-    const pad = { t: 20, r: 16, b: 28, l: 48 }
-    const prices = points.map((p) => p.avg_price).filter((p): p is number => p != null)
-    if (!prices.length) return
-    const min = Math.min(...prices)
-    const max = Math.max(...prices)
-    const range = max - min || 1
-
-    const isDark = document.documentElement.classList.contains('dark')
-    const grid = isDark ? '#262626' : '#e5e5e5'
-    const line = isDark ? '#3b82f6' : '#2563eb'
-    const text = isDark ? '#a3a3a3' : '#737373'
-
-    ctx.clearRect(0, 0, w, h)
-    ctx.strokeStyle = grid
-    ctx.lineWidth = 1
-    for (let i = 0; i <= 4; i++) {
-      const y = pad.t + ((h - pad.t - pad.b) * i) / 4
-      ctx.beginPath()
-      ctx.moveTo(pad.l, y)
-      ctx.lineTo(w - pad.r, y)
-      ctx.stroke()
-    }
-
-    ctx.beginPath()
-    ctx.strokeStyle = line
-    ctx.lineWidth = 2
-    points.forEach((p, i) => {
-      const x = pad.l + ((w - pad.l - pad.r) * i) / Math.max(points.length - 1, 1)
-      const y = pad.t + (h - pad.t - pad.b) * (1 - ((p.avg_price ?? min) - min) / range)
-      if (i === 0) ctx.moveTo(x, y)
-      else ctx.lineTo(x, y)
-    })
-    ctx.stroke()
-
-    ctx.fillStyle = line + '22'
-    ctx.lineTo(w - pad.r, h - pad.b)
-    ctx.lineTo(pad.l, h - pad.b)
-    ctx.closePath()
-    ctx.fill()
-
-    ctx.fillStyle = text
-    ctx.font = '11px sans-serif'
-    ctx.fillText(max.toFixed(0), 4, pad.t + 4)
-    ctx.fillText(min.toFixed(0), 4, h - pad.b)
-  }, [timeseriesQuery.data])
-
+  const filteredObservations = useFilteredObservations(allObservations, timeRange)
   const activeMonitor = monitorsQuery.data?.find((m) => m.monitor_id === monitorId)
+  const truncated = (activeMonitor?.observation_count ?? 0) > 1000
 
   if (monitorsQuery.isLoading) return <Skeleton className="h-[500px]" />
 
@@ -97,7 +54,7 @@ export function PriceTrendPage() {
         <label className="text-sm text-[var(--color-muted)]">监测任务</label>
         <select
           value={monitorId}
-          onChange={(e) => setMonitorId(e.target.value)}
+          onChange={(e) => setSelectedId(e.target.value)}
           className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm"
         >
           {(monitorsQuery.data || []).map((m) => (
@@ -109,7 +66,10 @@ export function PriceTrendPage() {
       </div>
 
       {!monitorsQuery.data?.length ? (
-        <EmptyState title="暂无监测任务" description="前往工作流创建监测任务" />
+        <EmptyState
+          title="暂无监测任务"
+          description="监测任务由 OpenClaw Agent 或 API 创建。请配置 Agent 后刷新本页。"
+        />
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-3">
@@ -134,16 +94,22 @@ export function PriceTrendPage() {
           </div>
 
           <Card>
-            <CardHeader>
-              <CardTitle>30 日均价趋势</CardTitle>
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle>价格趋势</CardTitle>
+              <ChartTimeRangePicker value={timeRange} onChange={setTimeRange} />
             </CardHeader>
             <CardContent>
-              {timeseriesQuery.isLoading ? (
+              {truncated ? (
+                <p className="mb-3 text-xs text-[var(--color-warning)]">
+                  观测总数超过 1000 条，图表仅展示最近 1000 条记录
+                </p>
+              ) : null}
+              {obsQuery.isLoading ? (
                 <Skeleton className="h-64" />
-              ) : timeseriesQuery.isError ? (
-                <ErrorBanner message={(timeseriesQuery.error as Error).message} />
+              ) : obsQuery.isError ? (
+                <ErrorBanner message={(obsQuery.error as Error).message} />
               ) : (
-                <canvas ref={canvasRef} className="h-64 w-full" />
+                <PriceTrendChart observations={filteredObservations} />
               )}
             </CardContent>
           </Card>
@@ -164,14 +130,16 @@ export function PriceTrendPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(obsQuery.data?.rows || []).map((row) => (
+                  {[...(obsQuery.data?.rows || [])].reverse().map((row) => (
                     <tr key={row.index} className="border-b border-[var(--color-border)]">
                       <td className="px-4 py-2 text-[var(--color-muted)]">{row.index}</td>
                       <td className="px-4 py-2">{row.item_name}</td>
                       <td className="px-4 py-2 text-[var(--color-muted)]">{formatCnDateTime(row.captured_at)}</td>
                       <td className="px-4 py-2 font-medium">{row.price?.toFixed(2) ?? '-'}</td>
                       <td className={`px-4 py-2 ${(row.delta_from_prev ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {row.delta_from_prev != null ? (row.delta_from_prev >= 0 ? '+' : '') + row.delta_from_prev.toFixed(2) : '-'}
+                        {row.delta_from_prev != null
+                          ? (row.delta_from_prev >= 0 ? '+' : '') + row.delta_from_prev.toFixed(2)
+                          : '-'}
                       </td>
                     </tr>
                   ))}

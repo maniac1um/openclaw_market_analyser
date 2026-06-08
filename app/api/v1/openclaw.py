@@ -2,6 +2,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, 
 
 from app.core.config import settings
 from app.core.security import verify_optional_signature, verify_user_api_key
+from app.db import public_queries as pq
+from app.db.query_context import QueryContext
 from app.db.user_models import User
 from app.db.repositories import InMemoryIngestRepository, PostgresIngestRepository
 from app.schemas.monitoring import (
@@ -30,6 +32,17 @@ router = APIRouter(
 repo = PostgresIngestRepository(settings.database_url) if settings.database_url else InMemoryIngestRepository()
 job_runner = JobRunner(repo=repo, report_service=ReportService(), publish_service=PublishService())
 intake_service = IntakeService(repo=repo, job_runner=job_runner)
+
+
+def _require_monitor_accessible(monitor_id: str, user: User) -> None:
+    ctx = QueryContext(user_id=user.id, role=user.role)
+    if not pq.monitor_accessible(monitor_id, ctx):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Monitor not found")
+
+
+def _assert_ingest_owner(record, user: User) -> None:
+    if record.user_id and record.user_id != user.id and user.role != "ADMIN":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ingest not found")
 
 
 def _ensure_news_tables(news_db_url: str) -> None:
@@ -95,8 +108,7 @@ def get_ingest_status(
     record = repo.get_by_ingest_id(ingest_id=ingest_id)
     if not record:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ingest not found")
-    if record.user_id and record.user_id != user.id and user.role != "ADMIN":
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ingest not found")
+    _assert_ingest_owner(record, user)
     return IngestStatusResponse(
         ingest_id=record.ingest_id,
         request_id=record.request_id,
@@ -118,11 +130,12 @@ def get_ingest_status(
 def retry_ingest(
     ingest_id: str,
     background_tasks: BackgroundTasks,
-    _: None = Depends(verify_user_api_key),
+    user: User = Depends(verify_user_api_key),
 ) -> IngestAccepted:
     record = repo.get_by_ingest_id(ingest_id=ingest_id)
     if not record:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ingest not found")
+    _assert_ingest_owner(record, user)
     if record.status != "failed":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only failed ingest can be retried")
     raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Retry payload hydration not implemented")
@@ -181,13 +194,14 @@ def bootstrap_monitoring(
 )
 def run_monitoring_once(
     monitor_id: str,
-    _: None = Depends(verify_user_api_key),
+    user: User = Depends(verify_user_api_key),
 ) -> MonitoringRunOnceResponse:
     if not settings.monitoring_database_url:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="未配置 OPENCLAW_MONITORING_DATABASE_URL。",
         )
+    _require_monitor_accessible(monitor_id, user)
     service = MonitoringService(
         settings.monitoring_database_url,
         allow_server_scrape=settings.monitoring_allow_server_scrape,
@@ -248,7 +262,7 @@ def ingest_monitoring_observation(
 def get_monitoring_summary(
     monitor_id: str,
     window_days: int = 7,
-    _: None = Depends(verify_user_api_key),
+    user: User = Depends(verify_user_api_key),
 ) -> MonitoringSummaryResponse:
     window_days = max(1, min(int(window_days), 365))
     if not settings.monitoring_database_url:
@@ -256,6 +270,7 @@ def get_monitoring_summary(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="未配置 OPENCLAW_MONITORING_DATABASE_URL。",
         )
+    _require_monitor_accessible(monitor_id, user)
     service = MonitoringService(
         settings.monitoring_database_url,
         allow_server_scrape=settings.monitoring_allow_server_scrape,
@@ -278,13 +293,14 @@ def get_monitoring_summary(
 def add_monitoring_urls(
     monitor_id: str,
     payload: MonitoringAddUrlsRequest,
-    _: None = Depends(verify_user_api_key),
+    user: User = Depends(verify_user_api_key),
 ) -> MonitoringAddUrlsResponse:
     if not settings.monitoring_database_url:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="未配置 OPENCLAW_MONITORING_DATABASE_URL。",
         )
+    _require_monitor_accessible(monitor_id, user)
     service = MonitoringService(
         settings.monitoring_database_url,
         allow_server_scrape=settings.monitoring_allow_server_scrape,
@@ -375,42 +391,22 @@ def create_news_library_item(
 def list_news_library_items(
     keyword: str | None = None,
     limit: int = 100,
-    _: None = Depends(verify_user_api_key),
+    user: User = Depends(verify_user_api_key),
 ) -> list[NewsLibraryItem]:
-    if not settings.news_database_url:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="未配置 OPENCLAW_NEWS_DATABASE_URL。",
-        )
-    _ensure_news_tables(settings.news_database_url)
+    pq.require_public_news_db()
     cap = max(1, min(int(limit), 500))
-    import psycopg
-
-    base_sql = """
-    SELECT id, keyword, summary, source_url, title, source_name, published_at, created_at
-    FROM news_library
-    """
-    params: tuple = ()
-    if keyword and keyword.strip():
-        base_sql += " WHERE keyword ILIKE %s"
-        params = (f"%{keyword.strip()}%",)
-    base_sql += " ORDER BY created_at DESC LIMIT %s"
-    params = (*params, cap)
-
-    out: list[NewsLibraryItem] = []
-    with psycopg.connect(settings.news_database_url) as conn, conn.cursor() as cur:
-        cur.execute(base_sql, params)
-        for row in cur.fetchall():
-            out.append(
-                NewsLibraryItem(
-                    id=int(row[0]),
-                    keyword=row[1],
-                    summary=row[2],
-                    source_url=row[3],
-                    title=row[4],
-                    source_name=row[5],
-                    published_at=row[6],
-                    created_at=row[7],
-                )
-            )
-    return out
+    ctx = QueryContext(user_id=user.id, role=user.role)
+    rows = pq.list_news_library_from_db(limit=cap, keyword=keyword, ctx=ctx)
+    return [
+        NewsLibraryItem(
+            id=int(row["id"]),
+            keyword=row["keyword"],
+            summary=row["summary"],
+            source_url=row["source_url"],
+            title=row["title"],
+            source_name=row["source_name"],
+            published_at=row["published_at"],
+            created_at=row["created_at"],
+        )
+        for row in rows
+    ]

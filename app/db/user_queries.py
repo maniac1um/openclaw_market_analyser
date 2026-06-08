@@ -3,15 +3,21 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
+import logging
+import os
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
 from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 
 from app.core.config import settings
 from app.db.query_context import LEGACY_ADMIN_USER_ID
 from app.db.user_models import User, UserApiKey
+
+logger = logging.getLogger(__name__)
 
 BOOTSTRAP_ADMIN_EMAIL = "admin@localhost"
 BOOTSTRAP_ADMIN_DEFAULT_PASSWORD = "Test_648."
@@ -20,7 +26,35 @@ _bootstrap_ph = PasswordHasher()
 
 
 def bootstrap_admin_password_hash() -> str:
-    return _bootstrap_ph.hash(BOOTSTRAP_ADMIN_DEFAULT_PASSWORD)
+    explicit = (os.environ.get("OPENCLAW_BOOTSTRAP_ADMIN_PASSWORD") or "").strip()
+    if explicit:
+        return _bootstrap_ph.hash(explicit)
+    generated = secrets.token_urlsafe(24)
+    logger.warning(
+        "Bootstrap admin %s created with a one-time random password (check secure logs / set OPENCLAW_BOOTSTRAP_ADMIN_PASSWORD).",
+        BOOTSTRAP_ADMIN_EMAIL,
+    )
+    logger.warning("Bootstrap admin one-time password: %s", generated)
+    return _bootstrap_ph.hash(generated)
+
+
+def bootstrap_admin_uses_default_password() -> bool:
+    if not settings.database_url:
+        return False
+    ensure_user_tables()
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT password_hash FROM users WHERE email = %s LIMIT 1",
+            (BOOTSTRAP_ADMIN_EMAIL,),
+        )
+        row = cur.fetchone()
+    if not row:
+        return False
+    try:
+        _bootstrap_ph.verify(str(row[0]), BOOTSTRAP_ADMIN_DEFAULT_PASSWORD)
+        return True
+    except VerifyMismatchError:
+        return False
 
 
 def _connect():
@@ -185,6 +219,11 @@ def run_multi_user_migrations() -> None:
     if admin_id:
         backfill_monitor_user_ids(admin_id)
         backfill_news_user_ids(admin_id)
+    from app.db.demo_seed import ensure_demo_user, maybe_reset_demo_data
+
+    if settings.demo_seed_enabled:
+        ensure_demo_user()
+        maybe_reset_demo_data()
 
 
 def normalize_email(email: str) -> str:
@@ -275,8 +314,18 @@ def update_last_login(user_id: str) -> None:
         conn.commit()
 
 
-def hash_api_key(raw_key: str) -> str:
+def legacy_hash_api_key(raw_key: str) -> str:
     return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
+
+
+def hash_api_key(raw_key: str) -> str:
+    pepper = (settings.openclaw_hmac_secret or "dev-secret").encode("utf-8")
+    digest = hmac.new(pepper, raw_key.encode("utf-8"), hashlib.sha256).hexdigest()
+    return f"hmac:{digest}"
+
+
+def api_key_hash_candidates(raw_key: str) -> tuple[str, ...]:
+    return (hash_api_key(raw_key), legacy_hash_api_key(raw_key))
 
 
 def generate_api_key_raw() -> str:
@@ -311,28 +360,29 @@ def create_api_key(*, user_id: str, label: str = "default") -> tuple[str, UserAp
 
 
 def get_user_by_api_key(raw_key: str) -> User | None:
-    key_hash = hash_api_key(raw_key)
     with _connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT u.id, u.email, u.username, u.role, u.status,
-                   u.created_at, u.updated_at, u.last_login_at, k.id
-            FROM user_api_keys k
-            JOIN users u ON u.id = k.user_id
-            WHERE k.key_hash = %s AND k.revoked_at IS NULL AND u.status = 'active'
-            """,
-            (key_hash,),
-        )
-        row = cur.fetchone()
-        if not row:
-            return None
-        key_id = row[8]
-        cur.execute(
-            "UPDATE user_api_keys SET last_used_at = NOW() WHERE id = %s::uuid",
-            (str(key_id),),
-        )
-        conn.commit()
-    return _row_to_user(row[:8])
+        for key_hash in api_key_hash_candidates(raw_key):
+            cur.execute(
+                """
+                SELECT u.id, u.email, u.username, u.role, u.status,
+                       u.created_at, u.updated_at, u.last_login_at, k.id
+                FROM user_api_keys k
+                JOIN users u ON u.id = k.user_id
+                WHERE k.key_hash = %s AND k.revoked_at IS NULL AND u.status = 'active'
+                """,
+                (key_hash,),
+            )
+            row = cur.fetchone()
+            if not row:
+                continue
+            key_id = row[8]
+            cur.execute(
+                "UPDATE user_api_keys SET last_used_at = NOW() WHERE id = %s::uuid",
+                (str(key_id),),
+            )
+            conn.commit()
+            return _row_to_user(row[:8])
+    return None
 
 
 def revoke_api_key(*, user_id: str, key_id: str) -> bool:
@@ -399,32 +449,34 @@ def create_session(
 
 
 def get_session_user(refresh_token: str) -> User | None:
-    refresh_hash = hash_api_key(refresh_token)
     with _connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT u.id, u.email, u.username, u.role, u.status,
-                   u.created_at, u.updated_at, u.last_login_at
-            FROM user_sessions s
-            JOIN users u ON u.id = s.user_id
-            WHERE s.refresh_hash = %s
-              AND s.revoked_at IS NULL
-              AND s.expires_at > NOW()
-              AND u.status = 'active'
-            """,
-            (refresh_hash,),
-        )
-        row = cur.fetchone()
-    return _row_to_user(row) if row else None
+        for refresh_hash in api_key_hash_candidates(refresh_token):
+            cur.execute(
+                """
+                SELECT u.id, u.email, u.username, u.role, u.status,
+                       u.created_at, u.updated_at, u.last_login_at
+                FROM user_sessions s
+                JOIN users u ON u.id = s.user_id
+                WHERE s.refresh_hash = %s
+                  AND s.revoked_at IS NULL
+                  AND s.expires_at > NOW()
+                  AND u.status = 'active'
+                """,
+                (refresh_hash,),
+            )
+            row = cur.fetchone()
+            if row:
+                return _row_to_user(row)
+    return None
 
 
 def revoke_session(refresh_token: str) -> None:
-    refresh_hash = hash_api_key(refresh_token)
     with _connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            "UPDATE user_sessions SET revoked_at = NOW() WHERE refresh_hash = %s AND revoked_at IS NULL",
-            (refresh_hash,),
-        )
+        for refresh_hash in api_key_hash_candidates(refresh_token):
+            cur.execute(
+                "UPDATE user_sessions SET revoked_at = NOW() WHERE refresh_hash = %s AND revoked_at IS NULL",
+                (refresh_hash,),
+            )
         conn.commit()
 
 

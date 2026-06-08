@@ -4,7 +4,7 @@ from fastapi import BackgroundTasks, HTTPException
 
 from app.api.v1.openclaw import intake_service
 from app.core.config import settings
-from app.db.public_queries import list_news_library_from_db, require_public_news_db
+from app.db.public_queries import list_news_library_from_db, monitor_accessible, require_public_news_db
 from app.db.query_context import QueryContext
 from app.schemas.report import OpenClawReportIn
 from app.services.monitoring_service import MonitoringService
@@ -19,11 +19,13 @@ def build_news_price_analysis(
     window_days: int,
     news_hours: int,
     horizon: str,
-    ctx: QueryContext | None = None,
+    ctx: QueryContext,
 ) -> dict:
     if not settings.monitoring_database_url:
         raise HTTPException(status_code=503, detail="未配置 OPENCLAW_MONITORING_DATABASE_URL。")
     require_public_news_db()
+    if not monitor_accessible(monitor_id, ctx):
+        raise HTTPException(status_code=404, detail="Monitor not found")
 
     summary = MonitoringService(settings.monitoring_database_url).get_summary(
         monitor_id=monitor_id,
@@ -39,9 +41,8 @@ def build_news_price_analysis(
     now = datetime.now(timezone.utc)
     since = now - timedelta(hours=max(1, news_hours))
     news_pool: list[dict] = []
-    lib_ctx = ctx or QueryContext(user_id="", role="ADMIN")
     for kw in keywords_used:
-        news_pool.extend(list_news_library_from_db(limit=180, keyword=kw, ctx=lib_ctx))
+        news_pool.extend(list_news_library_from_db(limit=180, keyword=kw, ctx=ctx))
     seen_ids: set[int] = set()
     seen_urls: set[str] = set()
     deduped_news: list[dict] = []
@@ -174,9 +175,10 @@ def run_news_trigger_analysis(
     user_id: str | None = None,
     ctx: QueryContext | None = None,
 ) -> dict:
-    from app.db.query_context import QueryContext as QC
-
-    effective_ctx = ctx or (QC(user_id=user_id, role="USER") if user_id else QC(user_id="", role="ADMIN"))
+    if ctx is None:
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication context required")
+        ctx = QueryContext(user_id=user_id, role="USER")
     result = build_news_price_analysis(
         monitor_id=monitor_id,
         keyword=keyword,
@@ -184,7 +186,7 @@ def run_news_trigger_analysis(
         window_days=window_days,
         news_hours=news_hours,
         horizon=horizon,
-        ctx=effective_ctx,
+        ctx=ctx,
     )
     ingest_id = None
     ingest_status = None

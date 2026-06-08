@@ -125,3 +125,10 @@ def test_news_library_scoped(require_db: None, user_a: AuthTestUser, user_b: Aut
     )
     assert list_b.status_code == 200
     assert list_b.json() == []
+
+    openclaw_b = client.get(
+        f"/api/v1/openclaw/news/library?keyword={keyword}&limit=20",
+        headers=api_key_headers(user_b),
+    )
+    assert openclaw_b.status_code == 200
+    assert openclaw_b.json() == []

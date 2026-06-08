@@ -16,6 +16,7 @@ from app.schemas.portal import (
     WorkflowBootstrapRequest,
     WorkflowTriggerRequest,
 )
+from app.db.query_context import QueryContext
 from app.services.monitoring_service import MonitoringService
 from app.services.news_analysis_service import run_news_trigger_analysis
 from app.utils.path_safety import parse_uuid
@@ -45,8 +46,12 @@ def get_report_detail(ingest_id: str, ctx: QueryCtx) -> dict:
 @router.post("/public/reports/bulk-delete", summary="批量删除报告")
 def bulk_delete_reports(
     request: BulkDeleteRequest,
+    user: CurrentUser,
     ctx: QueryCtx,
 ) -> dict:
+    from app.db.demo_guard import reject_demo_write
+
+    reject_demo_write(user)
     pq.require_public_reports_db()
     return pq.delete_reports_from_db(request.ingest_ids, ctx)
 
@@ -61,8 +66,12 @@ def public_news_library(ctx: QueryCtx, limit: int = 100, keyword: str | None = N
 @router.post("/public/news/library/bulk-delete", summary="用户侧批量删除新闻库条目")
 def public_news_library_bulk_delete(
     request: NewsBulkDeleteRequest,
+    user: CurrentUser,
     ctx: QueryCtx,
 ) -> dict:
+    from app.db.demo_guard import reject_demo_write
+
+    reject_demo_write(user)
     pq.require_public_news_db()
     return pq.delete_news_library_from_db(request.ids, ctx)
 
@@ -92,7 +101,7 @@ def public_monitoring_scheduler_status(request: Request, ctx: QueryCtx) -> dict:
 
 @router.get("/public/monitoring/external-jobs", summary="用户侧外部定时任务心跳")
 def public_monitoring_external_jobs(request: Request, ctx: QueryCtx) -> dict:
-    return pq.external_scheduler_jobs_public(request.app)
+    return pq.external_scheduler_jobs_public(request.app, ctx=ctx)
 
 
 @router.get("/public/portal/openclaw-work-overview", summary="门户首页 OpenClaw 工作情况聚合")
@@ -162,20 +171,22 @@ def public_workflow_gateway_status(
 @router.get("/public/workflow/diagnostics", summary="工作流一键诊断")
 def public_workflow_diagnostics(
     request: Request,
+    ctx: QueryCtx,
     _: User = Depends(verify_portal_write_auth),
 ) -> dict:
-    return pq.workflow_diagnostics_public(request.app)
+    return pq.workflow_diagnostics_public(request.app, ctx=ctx)
 
 
 @router.get("/public/workflow/run-readiness", summary="工作流可运行性验证")
 def public_workflow_run_readiness(
     request: Request,
+    ctx: QueryCtx,
     monitor_id: str | None = None,
     _: User = Depends(verify_portal_write_auth),
 ) -> dict:
     if monitor_id and not parse_uuid(monitor_id):
         raise HTTPException(status_code=422, detail="invalid monitor_id UUID")
-    return pq.workflow_run_readiness_public(request.app, monitor_id=monitor_id)
+    return pq.workflow_run_readiness_public(request.app, monitor_id=monitor_id, ctx=ctx)
 
 
 @router.get("/public/workflow/external-runs", summary="外部调度运行历史")
@@ -192,8 +203,12 @@ def public_workflow_external_configs(ctx: QueryCtx) -> dict:
 @router.post("/public/workflow/external-configs", summary="保存外部调度配置")
 def public_workflow_external_config_upsert(
     payload: ExternalSchedulerConfigRequest,
+    user: CurrentUser,
     ctx: QueryCtx,
 ) -> dict:
+    from app.db.demo_guard import reject_demo_write
+
+    reject_demo_write(user)
     return pq.upsert_external_scheduler_config(payload, ctx)
 
 
@@ -201,8 +216,12 @@ def public_workflow_external_config_upsert(
 def public_workflow_external_config_toggle(
     job_name: str,
     payload: ExternalSchedulerToggleRequest,
+    user: CurrentUser,
     ctx: QueryCtx,
 ) -> dict:
+    from app.db.demo_guard import reject_demo_write
+
+    reject_demo_write(user)
     return pq.toggle_external_scheduler_config(job_name=job_name, enabled=payload.enabled, ctx=ctx)
 
 
@@ -211,6 +230,9 @@ def public_workflow_monitor_bootstrap(
     payload: WorkflowBootstrapRequest,
     user: CurrentUser,
 ) -> dict:
+    from app.db.demo_guard import reject_demo_write
+
+    reject_demo_write(user)
     if not settings.monitoring_database_url:
         raise HTTPException(status_code=503, detail="未配置 OPENCLAW_MONITORING_DATABASE_URL。")
     req = MonitoringBootstrapRequest(
@@ -246,7 +268,11 @@ def public_workflow_analysis_run(
     payload: WorkflowTriggerRequest,
     background_tasks: BackgroundTasks,
     user: CurrentUser,
+    ctx: QueryCtx,
 ) -> dict:
+    from app.db.demo_guard import reject_demo_write
+
+    reject_demo_write(user)
     window_days = max(1, min(int(payload.window_days), 365))
     news_hours = max(1, min(int(payload.news_hours), 24 * 30))
     return run_news_trigger_analysis(
@@ -259,6 +285,7 @@ def public_workflow_analysis_run(
         publish=payload.publish,
         background_tasks=background_tasks,
         user_id=user.id,
+        ctx=ctx,
     )
 
 
@@ -268,6 +295,12 @@ def report_external_scheduler_heartbeat(
     request: Request,
     user: User = Depends(verify_user_api_key),
 ) -> dict:
+    if payload.monitor_id:
+        if not parse_uuid(payload.monitor_id):
+            raise HTTPException(status_code=422, detail="invalid monitor_id UUID")
+        heartbeat_ctx = QueryContext(user_id=user.id, role=user.role)
+        if not pq.monitor_accessible(payload.monitor_id, heartbeat_ctx):
+            raise HTTPException(status_code=404, detail="Monitor not found")
     now = pq.save_external_scheduler_run(
         job_name=payload.job_name,
         status=payload.status,
@@ -281,6 +314,7 @@ def report_external_scheduler_heartbeat(
         "monitor_id": payload.monitor_id,
         "message": payload.message,
         "last_seen_at": now,
+        "user_id": user.id,
     }
     return {"ok": True, "job_name": payload.job_name, "last_seen_at": now}
 
@@ -303,4 +337,5 @@ def trigger_news_price_analysis(
         publish=payload.publish,
         background_tasks=background_tasks,
         user_id=user.id,
+        ctx=QueryContext(user_id=user.id, role=user.role),
     )
