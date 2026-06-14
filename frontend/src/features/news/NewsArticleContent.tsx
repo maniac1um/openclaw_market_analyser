@@ -1,14 +1,11 @@
 import { ExternalLink } from 'lucide-react'
 import { Badge } from '../../components/ui/Badge'
 import { MarkdownContent } from '../../components/markdown/MarkdownContent'
-import { DrawerContentSkeleton } from '../../components/ui/ds'
 import { safeExternalHref } from '../../lib/urlSafety'
 import { cn, formatCnDateTime } from '../../lib/utils'
 import type { NewsLibraryItem } from '../../lib/api'
 
-export function NewsDetailDrawerContent({ item }: { item: NewsLibraryItem | undefined }) {
-  if (!item) return <DrawerContentSkeleton />
-
+export function NewsArticleContent({ item }: { item: NewsLibraryItem }) {
   const sourceHref = safeExternalHref(item.source_url)
   const published = formatCnDateTime(item.published_at || item.created_at)
 
@@ -37,9 +34,11 @@ export function NewsDetailDrawerContent({ item }: { item: NewsLibraryItem | unde
         </a>
       ) : null}
       {item.summary ? (
-        <MarkdownContent>{item.summary}</MarkdownContent>
+        <div className="border-t border-[var(--border)] pt-8">
+          <MarkdownContent>{item.summary}</MarkdownContent>
+        </div>
       ) : (
-        <p className="text-sm text-[var(--text-secondary)]">暂无正文内容</p>
+        <p className="border-t border-[var(--border)] pt-8 text-sm text-[var(--text-secondary)]">暂无正文内容</p>
       )}
     </div>
   )

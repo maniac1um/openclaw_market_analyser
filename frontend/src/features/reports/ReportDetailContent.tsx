@@ -1,4 +1,3 @@
-import { DrawerContentSkeleton } from '../../components/ui/ds'
 import { ReportDetailBody } from './ReportDetailBody'
 import type { ReportDetail } from '../../lib/api'
 import { formatCnDateTime } from '../../lib/utils'
@@ -15,12 +14,10 @@ function formatSources(sources?: string[]) {
   return sources.join('、')
 }
 
-export function ReportDetailDrawerContent({ report }: { report: ReportDetail | undefined }) {
-  if (!report) return <DrawerContentSkeleton />
-
+export function ReportDetailContent({ report }: { report: ReportDetail }) {
   return (
     <div className="flex flex-col" data-onboarding="report-detail">
-      <dl className="mb-6 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+      <dl className="mb-8 flex flex-wrap gap-x-8 gap-y-2 text-sm">
         <div className="flex gap-2">
           <dt className="text-[var(--text-secondary)]">关键词</dt>
           <dd className="text-primary">{report.keyword || '—'}</dd>
@@ -39,6 +36,6 @@ export function ReportDetailDrawerContent({ report }: { report: ReportDetail | u
   )
 }
 
-export function reportRowSubtitle(report: { keyword?: string; title?: string }) {
+export function reportRowSubtitle(report: { keyword?: string }) {
   return report.keyword || undefined
 }
