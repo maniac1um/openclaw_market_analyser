@@ -15,7 +15,7 @@ type TooltipState = {
 
 export function PriceTrendChart({
   observations,
-  height = 280,
+  height = 400,
 }: {
   observations: ChartObservation[]
   height?: number
@@ -110,7 +110,10 @@ export function PriceTrendChart({
 
   if (!observations.length) {
     return (
-      <div className="flex h-64 items-center justify-center text-sm text-[var(--color-muted)]">
+      <div
+        className="flex items-center justify-center text-sm text-[var(--ds-text-secondary)]"
+        style={{ height }}
+      >
         当前时间范围内暂无观测数据
       </div>
     )
@@ -118,28 +121,31 @@ export function PriceTrendChart({
 
   return (
     <div className="space-y-2">
-      <div className="flex justify-end">
-        <Button variant="secondary" className="text-xs" onClick={resetZoom}>
+      <div className="flex justify-end px-4 pt-4">
+        <Button variant="ghost" className="text-xs" onClick={resetZoom}>
           重置缩放
         </Button>
       </div>
       <div className="relative">
-        <div ref={containerRef} className="w-full" />
+        <div ref={containerRef} className="w-full" style={{ height }} />
         {tooltip ? (
           <div
-            className="pointer-events-none absolute z-10 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-xs shadow-lg"
+            className="pointer-events-none absolute z-10 rounded-lg border border-[var(--ds-border)] bg-[var(--ds-bg-base)]/95 px-3 py-2 text-xs backdrop-blur-md transition-opacity duration-150 ease-out"
             style={{
               left: Math.min(tooltip.left + 12, containerWidth - 180),
               top: Math.max(tooltip.top - 72, 8),
+              opacity: 1,
             }}
           >
-            <p className="font-medium">{tooltip.obs.item_name}</p>
-            <p className="mt-0.5 text-[var(--color-muted)]">{formatCnDateTime(tooltip.obs.captured_at)}</p>
+            <p className="font-medium text-[var(--ds-text-primary)]">{tooltip.obs.item_name}</p>
+            <p className="mt-0.5 text-[var(--ds-text-secondary)]">{formatCnDateTime(tooltip.obs.captured_at)}</p>
             <p className="mt-1 font-semibold text-[var(--color-accent)]">¥{tooltip.obs.price.toFixed(2)}</p>
           </div>
         ) : null}
       </div>
-      <p className="text-xs text-[var(--color-muted)]">拖动选择区域缩放 · 双击图表重置 · 悬停查看详情</p>
+      <p className="px-4 pb-3 text-xs text-[var(--ds-text-secondary)]">
+        拖动选择区域缩放 · 双击图表重置 · 悬停查看详情
+      </p>
     </div>
   )
 }

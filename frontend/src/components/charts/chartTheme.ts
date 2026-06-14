@@ -1,4 +1,5 @@
 import type uPlot from 'uplot'
+import uPlotLib from 'uplot'
 
 export function isDarkMode(): boolean {
   return document.documentElement.classList.contains('dark')
@@ -44,12 +45,17 @@ export function baseUPlotOpts(width: number, height: number): Partial<uPlot.Opti
         stroke: colors.line,
         width: 2,
         fill: colors.fill,
-        points: { show: true, size: 5, stroke: colors.line, fill: colors.line },
+        spanGaps: false,
+        paths: uPlotLib.paths.linear?.(),
+        points: { show: true, size: 6, stroke: colors.line, fill: colors.line },
       },
     ],
     cursor: {
+      show: true,
+      x: true,
+      y: false,
       drag: { x: true, y: false, setScale: true },
-      points: { show: true },
+      points: { show: true, size: 7 },
     },
     legend: { show: false },
   }

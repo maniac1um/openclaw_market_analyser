@@ -54,9 +54,7 @@ export function ReportDetailView({ report }: { report: ReportDetailType }) {
           <CardTitle>AI 结论</CardTitle>
         </CardHeader>
         <CardContent>
-          <MarkdownContent className="text-sm">
-            {report.report_markdown || report.analysis || '暂无分析内容'}
-          </MarkdownContent>
+          <MarkdownContent className="text-sm">{report.report_markdown || report.analysis || '暂无分析内容'}</MarkdownContent>
         </CardContent>
       </Card>
 

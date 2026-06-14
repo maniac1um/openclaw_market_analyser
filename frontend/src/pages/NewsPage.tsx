@@ -9,6 +9,7 @@ import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { MobileBackButton } from '../components/ui/MobileBackButton'
+import { MarkdownContent } from '../components/markdown/MarkdownContent'
 import { Skeleton, ErrorBanner, EmptyState } from '../components/ui/States'
 
 export function NewsPage() {
@@ -135,7 +136,9 @@ export function NewsPage() {
             </div>
             <h2 className="mt-4 text-lg font-semibold sm:text-xl">{active.title}</h2>
             <p className="mt-2 text-sm text-[var(--color-muted)]">{formatCnDateTime(active.published_at || active.created_at)}</p>
-            {active.summary && <p className="mt-4 text-sm leading-relaxed">{active.summary}</p>}
+            {active.summary ? (
+              <MarkdownContent className="mt-4 text-sm">{active.summary}</MarkdownContent>
+            ) : null}
             {safeExternalHref(active.source_url) && (
               <a
                 href={safeExternalHref(active.source_url)}

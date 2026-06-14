@@ -24,6 +24,16 @@
   --color-accent-soft: #172554;
 }
 
+/* Design system tokens (dark-first) */
+:root {
+  --ds-bg-base: #050505;
+  --ds-bg-panel: rgba(255, 255, 255, 0.03);
+  --ds-border: rgba(255, 255, 255, 0.08);
+  --ds-border-hover: rgba(255, 255, 255, 0.14);
+  --ds-text-primary: #fafafa;
+  --ds-text-secondary: #a3a3a3;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -54,66 +64,124 @@ body {
   }
 }
 
+.prose-markdown {
+  color: var(--ds-text-primary, var(--color-text));
+  line-height: 1.75;
+  word-break: break-word;
+}
+
+.prose-markdown > :first-child {
+  margin-top: 0;
+}
+
+.prose-markdown > :last-child {
+  margin-bottom: 0;
+}
+
 .prose-markdown h1,
 .prose-markdown h2,
 .prose-markdown h3,
 .prose-markdown h4,
 .prose-markdown h5,
-.prose-markdown h6,
-.prose-report h1,
-.prose-report h2,
-.prose-report h3 {
-  color: var(--color-text);
+.prose-markdown h6 {
+  color: var(--ds-text-primary, var(--color-text));
   font-weight: 600;
+  line-height: 1.35;
   margin-top: 1.25em;
   margin-bottom: 0.5em;
 }
 
-.prose-markdown p,
-.prose-report p {
+.prose-markdown h1 {
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.prose-markdown h2 {
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+}
+
+.prose-markdown h3 {
+  font-size: 1.125rem;
+}
+
+.prose-markdown h4 {
+  font-size: 1rem;
+}
+
+.prose-markdown h5 {
+  font-size: 0.875rem;
+}
+
+.prose-markdown h6 {
+  font-size: 0.8125rem;
+  color: var(--ds-text-secondary, var(--color-muted));
+}
+
+.prose-markdown p {
   margin: 0.6em 0;
-  line-height: 1.75;
 }
 
 .prose-markdown ul,
-.prose-report ul {
-  padding-left: 1.25rem;
+.prose-markdown ol {
+  margin: 0.6em 0;
+  padding-left: 1.35rem;
+}
+
+.prose-markdown ul {
   list-style: disc;
-  margin: 0.5em 0;
 }
 
 .prose-markdown ol {
-  padding-left: 1.25rem;
   list-style: decimal;
-  margin: 0.5em 0;
 }
 
-.prose-markdown a,
-.prose-report a {
+.prose-markdown li {
+  margin: 0.25em 0;
+}
+
+.prose-markdown li > ul,
+.prose-markdown li > ol {
+  margin: 0.25em 0;
+}
+
+.prose-markdown a {
   color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
-.prose-markdown code,
-.prose-report code {
-  font-size: 0.85em;
-  background: var(--color-border);
-  padding: 0.1em 0.35em;
+.prose-markdown a:hover {
+  opacity: 0.85;
+}
+
+.prose-markdown code {
+  font-size: 0.875em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--ds-border, var(--color-border));
+  padding: 0.15em 0.4em;
   border-radius: 4px;
 }
 
 .prose-markdown pre,
-.prose-report pre {
-  background: #0d1422;
-  color: #dce7ff;
-  padding: 12px;
+.prose-markdown .prose-markdown-pre {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--ds-border, var(--color-border));
+  color: var(--ds-text-primary, #dce7ff);
+  padding: 0.875rem 1rem;
   border-radius: 8px;
   overflow: auto;
   margin: 0.75em 0;
+  font-size: 0.8125rem;
+  line-height: 1.6;
 }
 
 .prose-markdown pre code {
   background: transparent;
+  border: none;
   padding: 0;
+  font-size: inherit;
 }
 
 .prose-markdown blockquote {
@@ -121,29 +189,49 @@ body {
   padding: 0.5em 1em;
   border-left: 3px solid var(--color-accent);
   background: var(--color-accent-soft);
-  color: var(--color-muted);
+  color: var(--ds-text-secondary, var(--color-muted));
 }
 
-.prose-markdown table,
-.prose-report table {
-  width: 100%;
-  border-collapse: collapse;
+.prose-markdown-table-wrap {
   margin: 0.75em 0;
-  display: block;
   max-width: 100%;
   overflow-x: auto;
+  border: 1px solid var(--ds-border, var(--color-border));
+  border-radius: 8px;
+}
+
+.prose-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
 }
 
 .prose-markdown th,
 .prose-markdown td {
-  border: 1px solid var(--color-border);
-  padding: 0.4em 0.65em;
+  border: 1px solid var(--ds-border, var(--color-border));
+  padding: 0.5em 0.75em;
   text-align: left;
+  vertical-align: top;
 }
 
 .prose-markdown th {
-  background: var(--color-bg);
+  background: rgba(255, 255, 255, 0.04);
   font-weight: 600;
+  color: var(--ds-text-primary, var(--color-text));
+}
+
+.prose-markdown td {
+  color: var(--ds-text-primary, var(--color-text));
+}
+
+.prose-markdown tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.prose-markdown hr {
+  border: none;
+  border-top: 1px solid var(--ds-border, var(--color-border));
+  margin: 1.25em 0;
 }
 
 .prose-markdown-compact h1,
@@ -154,4 +242,15 @@ body {
 
 .prose-markdown-compact p:first-child {
   margin-top: 0;
+}
+
+/* uPlot cursor */
+.uplot .u-cursor-x {
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 1;
+}
+
+.uplot .u-cursor-pt {
+  stroke: var(--color-accent);
+  fill: var(--color-accent);
 }
