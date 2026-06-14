@@ -2,21 +2,20 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Eye, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
-import { cn, formatCnDateTime } from '../lib/utils'
+import { formatCnDateTime } from '../lib/utils'
 import { Button } from '../components/ui/Button'
 import { ErrorBanner, EmptyState } from '../components/ui/States'
 import {
   Panel,
   DataRow,
-  Drawer,
   CommandBar,
   CommandBarInput,
   CommandBarButton,
+  Skeleton,
   TableSkeleton,
 } from '../components/ui/ds'
-import { ReportPreviewBody } from '../features/reports/ReportDetailBody'
 import { useOnboardingActive } from '../features/onboarding/OnboardingProvider'
 import { ONBOARDING_EVENTS } from '../features/onboarding/types'
 
@@ -25,19 +24,12 @@ export function ReportsPage() {
   const [searchParams] = useSearchParams()
   const [keyword, setKeyword] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [previewId, setPreviewId] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const onboardingActive = useOnboardingActive()
 
   const reportsQuery = useQuery({
     queryKey: ['reports'],
     queryFn: api.listReports,
-  })
-
-  const previewQuery = useQuery({
-    queryKey: ['report', previewId],
-    queryFn: () => api.getReport(previewId!),
-    enabled: !!previewId,
   })
 
   const filtered = useMemo(() => {
@@ -87,13 +79,11 @@ export function ReportsPage() {
     setSelected(next)
   }
 
-  const previewReport = previewQuery.data
-
   if (reportsQuery.isLoading) {
     return (
       <Panel className="w-full max-w-[360px] overflow-hidden p-0">
         <div className="border-b border-[var(--ds-border)] p-3">
-          <div className="h-9 animate-pulse rounded-lg bg-white/[0.06]" />
+          <Skeleton className="h-9 w-full rounded-lg" />
         </div>
         <TableSkeleton rows={8} />
       </Panel>
@@ -111,8 +101,12 @@ export function ReportsPage() {
   }
 
   return (
-    <>
-      <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
+        <header className="mb-6">
+          <h1 className="text-lg font-semibold text-[var(--ds-text-primary)]">专题分析</h1>
+          <p className="mt-1 text-sm text-[var(--ds-text-secondary)]">浏览与管理 AI 生成的分析报告</p>
+        </header>
+
         <Panel className="flex w-full max-w-[360px] flex-col overflow-hidden p-0">
           <div className="border-b border-[var(--ds-border)] p-3">
             <CommandBar className="border-0 bg-transparent p-0 backdrop-blur-none">
@@ -176,48 +170,14 @@ export function ReportsPage() {
                       subtitle={r.keyword}
                       meta={formatCnDateTime(r.generated_at)}
                       onClick={() => openReport(r.ingest_id)}
-                      className="min-w-0 flex-1 pr-1"
+                      className="min-w-0 flex-1 pr-3"
                     />
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setPreviewId(r.ingest_id)
-                      }}
-                      className={cn(
-                        'mr-2 flex shrink-0 items-center self-center rounded-lg p-2',
-                        'text-[var(--ds-text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--ds-text-primary)]',
-                      )}
-                      aria-label="快速预览"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
                   </div>
                 ))}
               </div>
             )}
           </div>
         </Panel>
-      </div>
-
-      <Drawer
-        open={!!previewId}
-        onClose={() => setPreviewId(null)}
-        title={previewReport?.title || '报告预览'}
-      >
-        {previewQuery.isLoading ? (
-          <p className="text-sm text-[var(--ds-text-secondary)]">加载中…</p>
-        ) : previewQuery.isError ? (
-          <ErrorBanner message={(previewQuery.error as Error).message} onRetry={() => previewQuery.refetch()} />
-        ) : previewReport ? (
-          <div className="flex flex-col gap-6">
-            <ReportPreviewBody report={previewReport} />
-            <Button variant="primary" className="w-full" onClick={() => openReport(previewReport.ingest_id)}>
-              查看完整报告
-            </Button>
-          </div>
-        ) : null}
-      </Drawer>
-    </>
+    </div>
   )
 }

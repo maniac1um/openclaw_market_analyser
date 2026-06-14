@@ -2,8 +2,20 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '../lib/api'
 import { formatCnDateTime } from '../lib/utils'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
-import { Skeleton, ErrorBanner } from '../components/ui/States'
+import { ErrorBanner } from '../components/ui/States'
+import {
+  Panel,
+  StatStrip,
+  StatStripItem,
+  PageSkeleton,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableHeaderRow,
+  TableCell,
+  TableHeaderCell,
+} from '../components/ui/ds'
 
 type Tab = 'monitors' | 'news' | 'reports'
 
@@ -14,7 +26,7 @@ export function KeywordTrackingPage() {
   const reportsQuery = useQuery({ queryKey: ['reports'], queryFn: api.listReports })
   const newsQuery = useQuery({ queryKey: ['news-all'], queryFn: () => api.listNews() })
 
-  if (overviewQuery.isLoading) return <Skeleton className="h-[500px]" />
+  if (overviewQuery.isLoading) return <PageSkeleton tables={1} statItems={3} />
   if (overviewQuery.isError) return <ErrorBanner message={(overviewQuery.error as Error).message} />
 
   const price = overviewQuery.data?.price_monitoring
@@ -37,35 +49,27 @@ export function KeywordTrackingPage() {
   ]
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-[var(--color-muted)]">监测任务</p>
-            <p className="text-2xl font-semibold">{price?.monitor_count ?? 0}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-[var(--color-muted)]">新闻关键词</p>
-            <p className="text-2xl font-semibold">{newsKw.length}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-[var(--color-muted)]">报告总数</p>
-            <p className="text-2xl font-semibold">{reportsQuery.data?.length ?? 0}</p>
-          </CardContent>
-        </Card>
-      </div>
+    <div className="flex flex-col gap-8">
+      <header>
+        <h1 className="text-lg font-semibold text-[var(--ds-text-primary)]">关键词</h1>
+        <p className="mt-1 text-sm text-[var(--ds-text-secondary)]">跨模块关键词追踪概览</p>
+      </header>
 
-      <div className="flex gap-1 rounded-lg border border-[var(--color-border)] p-1">
+      <StatStrip>
+        <StatStripItem label="监测任务" value={price?.monitor_count ?? 0} />
+        <StatStripItem label="新闻关键词" value={newsKw.length} />
+        <StatStripItem label="报告总数" value={reportsQuery.data?.length ?? 0} />
+      </StatStrip>
+
+      <div className="flex gap-1 rounded-lg border border-[var(--ds-border)] p-1 transition-[border-color] duration-[var(--ds-duration-fast)] hover:border-[var(--ds-border-hover)]">
         {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              tab === t.id ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-muted)] hover:text-[var(--color-text)]'
+            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-[var(--ds-duration-fast)] ${
+              tab === t.id
+                ? 'bg-[var(--color-accent)] text-white'
+                : 'text-[var(--ds-text-secondary)] hover:bg-[var(--ds-row-hover)] hover:text-[var(--ds-text-primary)]'
             }`}
           >
             {t.label}
@@ -73,55 +77,50 @@ export function KeywordTrackingPage() {
         ))}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{tabs.find((t) => t.id === tab)?.label}</CardTitle>
-        </CardHeader>
-        <CardContent className="overflow-x-auto p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[var(--color-border)] text-left text-xs text-[var(--color-muted)]">
-                <th className="px-4 py-2">关键词</th>
-                <th className="px-4 py-2">数量</th>
-                <th className="px-4 py-2">最近更新</th>
-                <th className="px-4 py-2">状态</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tab === 'monitors' &&
-                (price?.recent || []).map((m) => (
-                  <tr key={m.monitor_id} className="border-b border-[var(--color-border)]">
-                    <td className="px-4 py-2 font-medium">{m.keyword}</td>
-                    <td className="px-4 py-2">{m.observation_count} 观测</td>
-                    <td className="px-4 py-2 text-[var(--color-muted)]">{formatCnDateTime(m.last_captured_at)}</td>
-                    <td className="px-4 py-2">{(m.observation_count || 0) > 0 ? '正常' : '待采集'}</td>
-                  </tr>
-                ))}
-              {tab === 'news' &&
-                newsKw.map((k) => (
-                  <tr key={k.keyword} className="border-b border-[var(--color-border)]">
-                    <td className="px-4 py-2 font-medium">{k.keyword}</td>
-                    <td className="px-4 py-2">{k.item_count}</td>
-                    <td className="px-4 py-2 text-[var(--color-muted)]">—</td>
-                    <td className="px-4 py-2">{(k.item_count || 0) > 0 ? '正常' : '待入库'}</td>
-                  </tr>
-                ))}
-              {tab === 'reports' &&
-                Object.entries(reportByKeyword).map(([kw, v]) => (
-                  <tr key={kw} className="border-b border-[var(--color-border)]">
-                    <td className="px-4 py-2 font-medium">{kw}</td>
-                    <td className="px-4 py-2">{v.count}</td>
-                    <td className="px-4 py-2 text-[var(--color-muted)]">{formatCnDateTime(v.latest)}</td>
-                    <td className="px-4 py-2">{v.count > 0 ? '正常' : '待生成'}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-          {tab === 'news' && !newsKw.length && !newsQuery.isLoading && (
-            <p className="p-4 text-sm text-[var(--color-muted)]">暂无新闻关键词数据</p>
-          )}
-        </CardContent>
-      </Card>
+      <Panel className="overflow-x-auto p-0">
+        <Table>
+          <TableHead>
+            <TableHeaderRow>
+              <TableHeaderCell>关键词</TableHeaderCell>
+              <TableHeaderCell>数量</TableHeaderCell>
+              <TableHeaderCell>最近更新</TableHeaderCell>
+              <TableHeaderCell>状态</TableHeaderCell>
+            </TableHeaderRow>
+          </TableHead>
+          <TableBody>
+            {tab === 'monitors' &&
+              (price?.recent || []).map((m) => (
+                <TableRow key={m.monitor_id}>
+                  <TableCell className="font-medium">{m.keyword}</TableCell>
+                  <TableCell>{m.observation_count} 观测</TableCell>
+                  <TableCell className="text-[var(--ds-text-secondary)]">{formatCnDateTime(m.last_captured_at)}</TableCell>
+                  <TableCell>{(m.observation_count || 0) > 0 ? '正常' : '待采集'}</TableCell>
+                </TableRow>
+              ))}
+            {tab === 'news' &&
+              newsKw.map((k) => (
+                <TableRow key={k.keyword}>
+                  <TableCell className="font-medium">{k.keyword}</TableCell>
+                  <TableCell>{k.item_count}</TableCell>
+                  <TableCell className="text-[var(--ds-text-secondary)]">—</TableCell>
+                  <TableCell>{(k.item_count || 0) > 0 ? '正常' : '待入库'}</TableCell>
+                </TableRow>
+              ))}
+            {tab === 'reports' &&
+              Object.entries(reportByKeyword).map(([kw, v]) => (
+                <TableRow key={kw}>
+                  <TableCell className="font-medium">{kw}</TableCell>
+                  <TableCell>{v.count}</TableCell>
+                  <TableCell className="text-[var(--ds-text-secondary)]">{formatCnDateTime(v.latest)}</TableCell>
+                  <TableCell>{v.count > 0 ? '正常' : '待生成'}</TableCell>
+                </TableRow>
+              ))}
+          </TableBody>
+        </Table>
+        {tab === 'news' && !newsKw.length && !newsQuery.isLoading ? (
+          <p className="p-4 text-sm text-[var(--ds-text-secondary)]">暂无新闻关键词数据</p>
+        ) : null}
+      </Panel>
     </div>
   )
 }

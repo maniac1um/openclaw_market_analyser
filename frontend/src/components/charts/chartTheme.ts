@@ -55,7 +55,7 @@ export function baseUPlotOpts(width: number, height: number): Partial<uPlot.Opti
       x: true,
       y: false,
       drag: { x: true, y: false, setScale: true },
-      points: { show: true, size: 7 },
+      points: { show: true, size: 6, stroke: colors.line, fill: colors.line },
     },
     legend: { show: false },
   }

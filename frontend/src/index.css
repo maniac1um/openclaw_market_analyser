@@ -29,9 +29,15 @@
   --ds-bg-base: #050505;
   --ds-bg-panel: rgba(255, 255, 255, 0.03);
   --ds-border: rgba(255, 255, 255, 0.08);
-  --ds-border-hover: rgba(255, 255, 255, 0.14);
+  --ds-border-hover: rgba(255, 255, 255, 0.16);
   --ds-text-primary: #fafafa;
   --ds-text-secondary: #a3a3a3;
+  --ds-row-hover: rgba(255, 255, 255, 0.05);
+  --ds-row-hover-active: rgba(255, 255, 255, 0.08);
+  --ds-chart-crosshair: rgba(255, 255, 255, 0.32);
+  --ds-duration-fast: 150ms;
+  --ds-duration-drawer: 280ms;
+  --ds-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * {
@@ -246,11 +252,54 @@ body {
 
 /* uPlot cursor */
 .uplot .u-cursor-x {
-  stroke: rgba(255, 255, 255, 0.18);
+  stroke: var(--ds-chart-crosshair);
   stroke-width: 1;
+  stroke-dasharray: 4 3;
 }
 
 .uplot .u-cursor-pt {
   stroke: var(--color-accent);
   fill: var(--color-accent);
+}
+
+/* DS interactive table rows */
+.ds-table-row-interactive:hover {
+  background: var(--ds-row-hover);
+}
+
+.ds-table-row-interactive:active {
+  background: var(--ds-row-hover-active);
+}
+
+/* DS skeleton shimmer */
+@keyframes ds-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.ds-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: ds-shimmer 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-skeleton {
+    animation: none;
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .ds-drawer-panel,
+  .ds-drawer-backdrop {
+    transition: none !important;
+  }
 }

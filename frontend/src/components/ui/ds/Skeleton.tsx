@@ -1,9 +1,10 @@
 import { cn } from '../../../lib/utils'
+import { Panel } from './Panel'
 
 export function Skeleton({ className }: { className?: string }) {
   return (
     <div
-      className={cn('animate-pulse rounded-md bg-white/[0.06]', className)}
+      className={cn('ds-skeleton rounded-md', className)}
       aria-hidden
     />
   )
@@ -53,6 +54,39 @@ export function ChartSkeleton({ height = 400, className }: { height?: number; cl
     >
       <Skeleton className="ml-auto h-7 w-16" />
       <Skeleton className="h-full min-h-[280px] w-full rounded-lg" />
+    </div>
+  )
+}
+
+export function PageSkeleton({ tables = 2, statItems = 4 }: { tables?: number; statItems?: number }) {
+  return (
+    <div className="flex flex-col gap-10" aria-busy aria-label="加载中">
+      <div className="space-y-2">
+        <Skeleton className="h-6 w-28" />
+        <Skeleton className="h-4 w-64" />
+      </div>
+      <StatStripSkeleton items={statItems} />
+      {Array.from({ length: tables }, (_, i) => (
+        <Panel key={i} className="overflow-hidden p-0">
+          <Skeleton className="h-11 rounded-none border-b border-[var(--ds-border)]" />
+          <TableSkeleton rows={5} />
+        </Panel>
+      ))}
+    </div>
+  )
+}
+
+export function DrawerContentSkeleton() {
+  return (
+    <div className="flex flex-col gap-4" aria-hidden>
+      <div className="flex gap-2">
+        <Skeleton className="h-6 w-16 rounded-full" />
+        <Skeleton className="h-6 w-20 rounded-full" />
+      </div>
+      <Skeleton className="h-4 w-32" />
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-[92%]" />
+      <Skeleton className="h-4 w-[85%]" />
     </div>
   )
 }

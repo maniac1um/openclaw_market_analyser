@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LogOut, Menu, Search, Settings, Sparkles, User } from 'lucide-react'
+import { History, LogOut, Menu, Search, Settings, Sparkles, User } from 'lucide-react'
 import { useAuth } from '../../lib/AuthContext'
 import { useOnboarding } from '../../features/onboarding/OnboardingProvider'
 import { CommandBar, CommandBarInput } from '../ui/ds'
 
 type AppTopBarProps = {
   onOpenNav?: () => void
+  onOpenInfo?: () => void
+  showInfoButton?: boolean
 }
 
-export function AppTopBar({ onOpenNav }: AppTopBarProps) {
+export function AppTopBar({ onOpenNav, onOpenInfo, showInfoButton }: AppTopBarProps) {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const { openGuide } = useOnboarding()
@@ -60,6 +62,17 @@ export function AppTopBar({ onOpenNav }: AppTopBarProps) {
           />
         </CommandBar>
       </form>
+
+      {showInfoButton ? (
+        <button
+          type="button"
+          onClick={onOpenInfo}
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--ds-text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--ds-text-primary)]"
+          aria-label="打开对话列表"
+        >
+          <History className="h-5 w-5" />
+        </button>
+      ) : null}
 
       {user ? (
         <div ref={menuRef} className="relative shrink-0">

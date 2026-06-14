@@ -7,7 +7,7 @@ export function Panel({ className, children, ...props }: PanelProps) {
     <div
       className={cn(
         'rounded-xl border border-[var(--ds-border)] bg-[var(--ds-bg-panel)] p-6 backdrop-blur-md',
-        'transition-[border-color] duration-150 ease-out hover:border-[var(--ds-border-hover)]',
+        'transition-[border-color] duration-[var(--ds-duration-fast)] ease-out hover:border-[var(--ds-border-hover)]',
         className,
       )}
       {...props}

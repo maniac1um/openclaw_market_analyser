@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { cn } from '../../lib/utils'
 import { useAuth } from '../../lib/AuthContext'
 import { useChat } from '../../features/chat/ChatProvider'
+import { ChatSessionsDrawer } from '../../features/chat/ChatSessionsDrawer'
 import { AppNavDrawer } from './AppNavDrawer'
 import { AppTopBar } from './AppTopBar'
 
@@ -13,6 +14,7 @@ export function AppShell() {
   const isChatHome = location.pathname === '/app'
   const chatBusy = pendingSessionKeys.length > 0
   const [navOpen, setNavOpen] = useState(false)
+  const [infoOpen, setInfoOpen] = useState(false)
 
   useEffect(() => {
     document.documentElement.classList.add('dark')
@@ -22,11 +24,16 @@ export function AppShell() {
 
   useEffect(() => {
     setNavOpen(false)
+    setInfoOpen(false)
   }, [location.pathname])
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-[var(--ds-bg-base)] text-[var(--ds-text-primary)]">
-      <AppTopBar onOpenNav={() => setNavOpen(true)} />
+      <AppTopBar
+        onOpenNav={() => setNavOpen(true)}
+        onOpenInfo={() => setInfoOpen(true)}
+        showInfoButton={isChatHome}
+      />
 
       {user?.is_demo ? (
         <div className="shrink-0 border-b border-amber-900/50 bg-amber-950/40 px-4 py-2 text-center text-xs text-amber-200 md:px-8">
@@ -47,6 +54,9 @@ export function AppShell() {
       </main>
 
       <AppNavDrawer open={navOpen} onClose={() => setNavOpen(false)} chatBusy={chatBusy} />
+      {isChatHome ? (
+        <ChatSessionsDrawer open={infoOpen} onClose={() => setInfoOpen(false)} />
+      ) : null}
     </div>
   )
 }

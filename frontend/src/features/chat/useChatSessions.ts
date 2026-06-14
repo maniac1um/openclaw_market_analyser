@@ -107,8 +107,8 @@ export function useChatSessions() {
       const session = { ...sessions[sessionKey] }
       const messages = normalizeMessages([
         ...session.messages,
-        { side: 'user' as const, text },
-        { side: 'assistant' as const, text: '' },
+        { role: 'user' as const, text },
+        { role: 'assistant' as const, text: '' },
       ])
       session.messages = messages
       session.assistantIndex = messages.length - 1
@@ -133,7 +133,7 @@ export function useChatSessions() {
       const session = cur.sessions[sessionKey]
       if (!session || session.assistantIndex === null) return
       const messages = [...session.messages]
-      messages[session.assistantIndex] = { side: 'assistant', text }
+      messages[session.assistantIndex] = { role: 'assistant', text }
       const next: ChatState = {
         ...cur,
         sessions: {
@@ -155,7 +155,7 @@ export function useChatSessions() {
       const messages = [...session.messages]
       if (session.assistantIndex !== null) {
         messages[session.assistantIndex] = {
-          side: 'assistant',
+          role: 'assistant',
           text: `回复失败：${error || '未知错误'}`,
         }
       }

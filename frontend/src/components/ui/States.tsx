@@ -1,10 +1,7 @@
 import { AlertCircle, Inbox, RefreshCw } from 'lucide-react'
 import { Button } from './Button'
-import { cn } from '../../lib/utils'
 
-export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn('animate-pulse rounded-md bg-white/[0.06]', className)} aria-hidden />
-}
+export { Skeleton, SkeletonRow, TableSkeleton, StatStripSkeleton, ChartSkeleton, PageSkeleton, DrawerContentSkeleton } from './ds/Skeleton'
 
 export function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (

@@ -1,5 +1,5 @@
-import { ChatPage } from '../features/chat/ChatPage'
+import { WorkspacePage } from '../features/workspace/WorkspacePage'
 
 export function HomePage() {
-  return <ChatPage />
+  return <WorkspacePage />
 }

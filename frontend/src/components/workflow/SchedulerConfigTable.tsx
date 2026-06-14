@@ -1,6 +1,15 @@
 import { formatCnDateTime } from '../../lib/utils'
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card'
 import { Badge } from '../ui/Badge'
+import {
+  Panel,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableHeaderRow,
+  TableCell,
+  TableHeaderCell,
+} from '../ui/ds'
 import type { SchedulerConfig } from './types'
 
 export function SchedulerConfigTable({
@@ -11,42 +20,38 @@ export function SchedulerConfigTable({
   onSelect: (config: SchedulerConfig) => void
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>外部调度配置</CardTitle>
-      </CardHeader>
-      <CardContent className="overflow-x-auto p-0">
-        {!configs.length ? (
-          <p className="p-4 text-sm text-[var(--color-muted)]">暂无外部调度配置</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[var(--color-border)] text-left text-xs text-[var(--color-muted)]">
-                <th className="px-4 py-2">任务名</th>
-                <th className="px-4 py-2">Cron</th>
-                <th className="px-4 py-2">状态</th>
-                <th className="px-4 py-2">更新于</th>
-              </tr>
-            </thead>
-            <tbody>
+    <Panel className="overflow-hidden p-0">
+      <div className="border-b border-[var(--ds-border)] px-4 py-3">
+        <h3 className="text-sm font-semibold text-[var(--ds-text-primary)]">外部调度配置</h3>
+      </div>
+      {!configs.length ? (
+        <p className="p-4 text-sm text-[var(--ds-text-secondary)]">暂无外部调度配置</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHead>
+              <TableHeaderRow>
+                <TableHeaderCell>任务名</TableHeaderCell>
+                <TableHeaderCell>Cron</TableHeaderCell>
+                <TableHeaderCell>状态</TableHeaderCell>
+                <TableHeaderCell>更新于</TableHeaderCell>
+              </TableHeaderRow>
+            </TableHead>
+            <TableBody>
               {configs.map((c) => (
-                <tr
-                  key={c.job_name}
-                  className="cursor-pointer border-b border-[var(--color-border)] transition-colors hover:bg-[var(--color-bg)]"
-                  onClick={() => onSelect(c)}
-                >
-                  <td className="px-4 py-2 font-medium">{c.job_name}</td>
-                  <td className="px-4 py-2 font-mono text-xs">{c.cron_expr || '—'}</td>
-                  <td className="px-4 py-2">
+                <TableRow key={c.job_name} interactive onClick={() => onSelect(c)}>
+                  <TableCell className="font-medium">{c.job_name}</TableCell>
+                  <TableCell className="font-mono text-xs">{c.cron_expr || '—'}</TableCell>
+                  <TableCell>
                     <Badge variant={c.enabled ? 'success' : 'muted'}>{c.enabled ? '启用' : '停用'}</Badge>
-                  </td>
-                  <td className="px-4 py-2 text-[var(--color-muted)]">{formatCnDateTime(c.updated_at)}</td>
-                </tr>
+                  </TableCell>
+                  <TableCell className="text-[var(--ds-text-secondary)]">{formatCnDateTime(c.updated_at)}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        )}
-      </CardContent>
-    </Card>
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </Panel>
   )
 }

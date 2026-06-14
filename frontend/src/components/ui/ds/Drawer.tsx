@@ -13,7 +13,7 @@ type DrawerProps = {
   width?: number
 }
 
-const ANIMATION_MS = 300
+const ANIMATION_MS = 280
 
 export function Drawer({
   open,
@@ -66,7 +66,7 @@ export function Drawer({
         type="button"
         aria-label="关闭"
         className={cn(
-          'absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300',
+          'ds-drawer-backdrop absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-[var(--ds-duration-drawer)] ease-out',
           visible ? 'opacity-100' : 'opacity-0',
         )}
         onClick={onClose}
@@ -76,7 +76,7 @@ export function Drawer({
         aria-modal="true"
         aria-labelledby={title ? 'ds-drawer-title' : undefined}
         className={cn(
-          'absolute top-0 flex h-full max-w-full flex-col border-[var(--ds-border)] bg-[var(--ds-bg-base)] will-change-transform transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+          'ds-drawer-panel absolute top-0 flex h-full max-w-full flex-col border-[var(--ds-border)] bg-[var(--ds-bg-base)] will-change-transform transition-transform duration-[var(--ds-duration-drawer)] ease-[var(--ds-ease-out)]',
           panelPosition,
           visible ? 'translate-x-0' : hiddenTransform,
           className,
@@ -92,20 +92,13 @@ export function Drawer({
               type="button"
               onClick={onClose}
               aria-label="关闭抽屉"
-              className="rounded-md p-1 text-[var(--ds-text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--ds-text-primary)]"
+              className="rounded-md p-1 text-[var(--ds-text-secondary)] transition-colors duration-[var(--ds-duration-fast)] hover:bg-[var(--ds-row-hover)] hover:text-[var(--ds-text-primary)]"
             >
               <X className="h-5 w-5" />
             </button>
           </header>
         ) : null}
-        <div
-          className={cn(
-            'min-h-0 flex-1 overflow-y-auto transition-opacity duration-200 ease-out',
-            !title && 'p-0',
-            title && 'p-6',
-          )}
-          style={{ opacity: visible ? 1 : 0 }}
-        >
+        <div className={cn('min-h-0 flex-1 overflow-y-auto', !title && 'p-0', title && 'p-6')}>
           {children}
         </div>
       </aside>

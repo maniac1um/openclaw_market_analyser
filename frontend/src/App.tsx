@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { AuthProvider } from './lib/AuthContext'
@@ -34,6 +34,11 @@ const legacyRedirects = [
   '/topic-analysis',
 ] as const
 
+function LegacyReportDetailRedirect() {
+  const { id } = useParams<{ id: string }>()
+  return <Navigate to={`/app/reports/${id}`} replace />
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -50,6 +55,7 @@ export default function App() {
                 element={<Navigate to={`/app${from === '/topic-analysis' ? '/reports' : from}`} replace />}
               />
             ))}
+            <Route path="/reports/:id" element={<LegacyReportDetailRedirect />} />
             <Route element={<ProtectedRoute />}>
               <Route element={<OnboardingProvider><ChatProvider><AppShell /></ChatProvider></OnboardingProvider>}>
                 <Route path="/app" element={<HomePage />} />

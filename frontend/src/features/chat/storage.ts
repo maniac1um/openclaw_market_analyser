@@ -1,4 +1,4 @@
-import type { ChatMessage, ChatSession, ChatStoragePayload } from './types'
+import type { ChatMessage, ChatSession, ChatStoragePayload, UserMessage } from './types'
 
 export const CHAT_STORAGE_KEY = 'oc_portal_chat_v1'
 const MAX_CHAT_SESSIONS = 20
@@ -9,12 +9,36 @@ function toSafeText(v: unknown): string {
   return v.slice(0, 4000)
 }
 
+function normalizeRole(raw: Record<string, unknown>): ChatMessage['role'] | null {
+  if (raw.role === 'user' || raw.role === 'assistant' || raw.role === 'system' || raw.role === 'report') {
+    return raw.role
+  }
+  if (raw.side === 'user') return 'user'
+  if (raw.side === 'assistant') return 'assistant'
+  return null
+}
+
 export function normalizeMessages(arr: unknown): ChatMessage[] {
   if (!Array.isArray(arr)) return []
   const out: ChatMessage[] = []
   for (const item of arr) {
-    if (!item || (item.side !== 'user' && item.side !== 'assistant')) continue
-    out.push({ side: item.side, text: toSafeText(item.text) })
+    if (!item || typeof item !== 'object') continue
+    const raw = item as Record<string, unknown>
+    if (raw.role === 'report' || (raw.side === 'report' && typeof raw.reportId === 'string')) {
+      const reportId = toSafeText(raw.reportId).trim()
+      if (!reportId) continue
+      out.push({
+        role: 'report',
+        reportId,
+        trend: toSafeText(raw.trend).trim() || undefined,
+        risk: toSafeText(raw.risk).trim() || undefined,
+        title: toSafeText(raw.title).trim() || undefined,
+      })
+      continue
+    }
+    const role = normalizeRole(raw)
+    if (!role || role === 'report') continue
+    out.push({ role, text: toSafeText(raw.text) })
   }
   return out.slice(-MAX_MESSAGES_PER_SESSION)
 }
@@ -35,7 +59,7 @@ export function genSessionKey(): string {
 }
 
 export function deriveTitleFromMessages(messages: ChatMessage[]): string {
-  const firstUser = messages.find((m) => m.side === 'user' && m.text.trim())
+  const firstUser = messages.find((m): m is UserMessage => m.role === 'user' && m.text.trim().length > 0)
   if (!firstUser) return '新对话'
   const t = firstUser.text.trim().replace(/\s+/g, ' ')
   return t.length > 28 ? `${t.slice(0, 28)}…` : t

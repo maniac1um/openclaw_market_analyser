@@ -28,10 +28,10 @@ export function DataRow({ title, subtitle, meta, onClick, className }: DataRowPr
       }
       className={cn(
         'flex items-center justify-between gap-4 px-3 py-3',
-        'transition-colors duration-150 ease-out',
+        'transition-colors duration-[var(--ds-duration-fast)] ease-out',
         interactive
-          ? 'cursor-pointer hover:bg-white/[0.06] active:bg-white/[0.08]'
-          : 'hover:bg-white/[0.04]',
+          ? 'cursor-pointer hover:bg-[var(--ds-row-hover)] active:bg-[var(--ds-row-hover-active)]'
+          : 'hover:bg-[var(--ds-row-hover)]',
         className,
       )}
     >

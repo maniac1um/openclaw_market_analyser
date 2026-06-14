@@ -1,35 +1,44 @@
-import { Panel, Section, StatStrip, StatStripItem, DataRow } from '../../components/ui/ds'
+import { DataRow } from '../../components/ui/ds'
+import { ChartSkeleton } from '../../components/ui/ds/Skeleton'
 import { MarkdownContent } from '../../components/markdown/MarkdownContent'
+import { PriceTrendChart } from '../../components/charts/PriceTrendChart'
 import type { ReportDetail } from '../../lib/api'
-import { deriveInsights, riskLabel, sentimentLabel } from '../../lib/insights'
 import { safeExternalHref } from '../../lib/urlSafety'
 import { formatCnDateTime } from '../../lib/utils'
+import { useReportTrendObservations } from './useReportTrendObservations'
+
+const TREND_CHART_HEIGHT = 320
 
 export function ReportDetailBody({ report }: { report: ReportDetail }) {
-  const insights = deriveInsights(report)
   const items = report.items || []
-
-  const sentiment = insights.sentiment ? sentimentLabel[insights.sentiment] || insights.sentiment : '—'
-  const risk = insights.risk_level ? riskLabel[insights.risk_level] || insights.risk_level : '—'
-  const confidence = insights.confidence || '—'
-  const forecast = insights.forecast || '—'
+  const { observations, loading: trendLoading, show: showTrend } = useReportTrendObservations(report)
 
   return (
-    <div className="flex flex-col gap-10">
-      <StatStrip>
-        <StatStripItem label="情绪分析" value={sentiment} />
-        <StatStripItem label="风险等级" value={risk} />
-        <StatStripItem label="市场影响" value={forecast} />
-        <StatStripItem label="置信度" value={confidence} />
-      </StatStrip>
-
-      <Section title="AI 分析">
+    <div className="flex flex-col">
+      <section className="border-t border-[var(--ds-border)] py-8">
         <MarkdownContent>{report.report_markdown || report.analysis || '暂无分析内容'}</MarkdownContent>
-      </Section>
+      </section>
+
+      {showTrend ? (
+        <section className="border-t border-[var(--ds-border)] py-8">
+          <h2 className="mb-4 text-sm font-semibold text-[var(--ds-text-primary)]">价格趋势</h2>
+          <div className="border border-[var(--ds-border)]">
+            {trendLoading ? (
+              <ChartSkeleton height={TREND_CHART_HEIGHT} />
+            ) : (
+              <PriceTrendChart observations={observations} height={TREND_CHART_HEIGHT} />
+            )}
+          </div>
+        </section>
+      ) : null}
 
       {items.length > 0 ? (
-        <Section title="相关新闻" description={`共 ${items.length} 条`}>
-          <Panel className="divide-y divide-[var(--ds-border)] p-0">
+        <section className="border-t border-[var(--ds-border)] py-8">
+          <header className="mb-4 flex items-baseline justify-between gap-4">
+            <h2 className="text-sm font-semibold text-[var(--ds-text-primary)]">相关新闻</h2>
+            <span className="text-xs text-[var(--ds-text-secondary)]">共 {items.length} 条</span>
+          </header>
+          <div className="divide-y divide-[var(--ds-border)] border border-[var(--ds-border)]">
             {items.map((item, i) => {
               const href = safeExternalHref(item.url)
               return (
@@ -42,27 +51,8 @@ export function ReportDetailBody({ report }: { report: ReportDetail }) {
                 />
               )
             })}
-          </Panel>
-        </Section>
-      ) : null}
-    </div>
-  )
-}
-
-export function ReportPreviewBody({ report }: { report: ReportDetail }) {
-  const insights = deriveInsights(report)
-  const sentiment = insights.sentiment ? sentimentLabel[insights.sentiment] || insights.sentiment : '—'
-  const risk = insights.risk_level ? riskLabel[insights.risk_level] || insights.risk_level : '—'
-  const snippet = (report.analysis || report.report_markdown || '').slice(0, 160)
-
-  return (
-    <div className="flex flex-col gap-4">
-      <StatStrip>
-        <StatStripItem label="情绪" value={sentiment} />
-        <StatStripItem label="风险" value={risk} />
-      </StatStrip>
-      {snippet ? (
-        <p className="line-clamp-3 text-sm text-[var(--ds-text-secondary)]">{snippet}</p>
+          </div>
+        </section>
       ) : null}
     </div>
   )

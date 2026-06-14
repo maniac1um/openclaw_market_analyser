@@ -11,6 +11,7 @@ export function CommandBar({ children, className }: CommandBarProps) {
     <div
       className={cn(
         'flex flex-wrap items-center gap-3 rounded-xl border border-[var(--ds-border)] bg-[var(--ds-bg-panel)] px-4 py-3 backdrop-blur-md',
+        'transition-[border-color] duration-[var(--ds-duration-fast)] ease-out hover:border-[var(--ds-border-hover)]',
         className,
       )}
       role="toolbar"

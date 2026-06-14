@@ -1,4 +1,4 @@
-export type TimeRange = '1h' | '6h' | '24h' | '7d' | '30d' | '90d' | 'all'
+export type TimeRange = '1h' | '6h' | '24h' | '7d' | '30d' | 'all'
 
 export type ChartObservation = {
   captured_at: string
@@ -12,7 +12,6 @@ export const TIME_RANGE_LABELS: Record<TimeRange, string> = {
   '24h': '24h',
   '7d': '7d',
   '30d': '30d',
-  '90d': '90d',
   all: 'All',
 }
 
@@ -22,6 +21,5 @@ export const TIME_RANGE_MS: Record<TimeRange, number | null> = {
   '24h': 86_400_000,
   '7d': 7 * 86_400_000,
   '30d': 30 * 86_400_000,
-  '90d': 90 * 86_400_000,
   all: null,
 }

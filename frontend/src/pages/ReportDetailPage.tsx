@@ -4,16 +4,31 @@ import { ArrowLeft } from 'lucide-react'
 import { api } from '../lib/api'
 import { formatCnDateTime } from '../lib/utils'
 import { ErrorBanner } from '../components/ui/States'
-import { StatStripSkeleton, Skeleton as DsSkeleton } from '../components/ui/ds'
+import { Skeleton as DsSkeleton } from '../components/ui/ds'
 import { ReportDetailBody } from '../features/reports/ReportDetailBody'
+
+function formatReportTime(report: { time_range?: { start?: string; end?: string }; generated_at?: string }) {
+  if (report.time_range?.start || report.time_range?.end) {
+    return `${formatCnDateTime(report.time_range?.start)} — ${formatCnDateTime(report.time_range?.end)}`
+  }
+  return formatCnDateTime(report.generated_at)
+}
+
+function formatSources(sources?: string[]) {
+  if (!sources?.length) return '—'
+  return sources.join('、')
+}
 
 function ReportDetailSkeleton() {
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-10">
-      <DsSkeleton className="h-8 w-2/3" />
-      <DsSkeleton className="h-4 w-1/2" />
-      <StatStripSkeleton items={4} />
-      <div className="space-y-3">
+    <div className="mx-auto flex w-full max-w-[900px] flex-col gap-8">
+      <DsSkeleton className="h-10 w-2/3" />
+      <div className="flex gap-6">
+        <DsSkeleton className="h-4 w-24" />
+        <DsSkeleton className="h-4 w-40" />
+        <DsSkeleton className="h-4 w-32" />
+      </div>
+      <div className="space-y-3 border-t border-[var(--ds-border)] pt-8">
         <DsSkeleton className="h-4 w-full" />
         <DsSkeleton className="h-4 w-[95%]" />
         <DsSkeleton className="h-4 w-[88%]" />
@@ -49,29 +64,33 @@ export function ReportDetailPage() {
   if (!report) return null
 
   return (
-    <article className="mx-auto w-full max-w-4xl" data-onboarding="report-detail">
+    <article className="mx-auto w-full max-w-[900px]" data-onboarding="report-detail">
       <Link
         to="/app/reports"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-[var(--ds-text-secondary)] transition-colors hover:text-[var(--ds-text-primary)]"
+        className="mb-8 inline-flex items-center gap-1.5 text-sm text-[var(--ds-text-secondary)] transition-colors hover:text-[var(--ds-text-primary)]"
       >
         <ArrowLeft className="h-4 w-4" />
         返回列表
       </Link>
 
-      <header className="mb-10 border-b border-[var(--ds-border)] pb-8">
-        <h1 className="text-2xl font-semibold tracking-tight text-[var(--ds-text-primary)]">
+      <header className="mb-2">
+        <h1 className="text-3xl font-semibold tracking-tight text-[var(--ds-text-primary)]">
           {report.title || '未命名报告'}
         </h1>
-        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[var(--ds-text-secondary)]">
-          {report.keyword ? <span>关键词：{report.keyword}</span> : null}
-          {report.time_range?.start || report.time_range?.end ? (
-            <span>
-              时间范围：{formatCnDateTime(report.time_range?.start)} — {formatCnDateTime(report.time_range?.end)}
-            </span>
-          ) : null}
-          <span>生成于 {formatCnDateTime(report.generated_at)}</span>
-          {report.items_count != null ? <span>新闻 {report.items_count} 条</span> : null}
-        </div>
+        <dl className="mt-5 flex flex-wrap gap-x-8 gap-y-2 text-sm">
+          <div className="flex gap-2">
+            <dt className="text-[var(--ds-text-secondary)]">关键词</dt>
+            <dd className="text-[var(--ds-text-primary)]">{report.keyword || '—'}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="text-[var(--ds-text-secondary)]">时间</dt>
+            <dd className="text-[var(--ds-text-primary)]">{formatReportTime(report)}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="text-[var(--ds-text-secondary)]">数据源</dt>
+            <dd className="text-[var(--ds-text-primary)]">{formatSources(report.sources)}</dd>
+          </div>
+        </dl>
       </header>
 
       <ReportDetailBody report={report} />

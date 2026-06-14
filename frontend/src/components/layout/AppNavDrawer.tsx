@@ -29,10 +29,10 @@ function NavItem({
       onClick={onNavigate}
       className={({ isActive }) =>
         cn(
-          'relative flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150',
+          'relative flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm transition-colors duration-[var(--ds-duration-fast)]',
           isActive
             ? 'font-medium text-[var(--ds-text-primary)]'
-            : 'text-[var(--ds-text-secondary)] hover:bg-white/5 hover:text-[var(--ds-text-primary)]',
+            : 'text-[var(--ds-text-secondary)] hover:bg-[var(--ds-row-hover)] hover:text-[var(--ds-text-primary)]',
         )
       }
     >

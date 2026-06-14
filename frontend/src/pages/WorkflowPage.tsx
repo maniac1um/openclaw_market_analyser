@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { api } from '../lib/api'
-import { Skeleton, ErrorBanner } from '../components/ui/States'
-import { WorkflowOverviewCards } from '../components/workflow/WorkflowOverviewCards'
+import { ErrorBanner } from '../components/ui/States'
+import { PageSkeleton, StatStrip, StatStripItem } from '../components/ui/ds'
 import { MonitorTaskTable } from '../components/workflow/MonitorTaskTable'
 import { SchedulerConfigTable } from '../components/workflow/SchedulerConfigTable'
 import { SchedulerRunList } from '../components/workflow/SchedulerRunList'
@@ -31,7 +31,7 @@ export function WorkflowPage() {
     return stateQuery.data?.overview?.price_monitoring?.recent || []
   }, [monitorsQuery.data, stateQuery.data?.overview?.price_monitoring?.recent])
 
-  if (stateQuery.isLoading) return <Skeleton className="h-[500px]" />
+  if (stateQuery.isLoading) return <PageSkeleton tables={3} statItems={4} />
   if (stateQuery.isError) {
     return <ErrorBanner message={(stateQuery.error as Error).message} onRetry={() => stateQuery.refetch()} />
   }
@@ -43,17 +43,18 @@ export function WorkflowPage() {
       [])
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">工作流控制台</h1>
-        <p className="mt-1 text-sm text-[var(--color-muted)]">查看监测任务、调度配置与执行记录</p>
-      </div>
+    <div className="flex flex-col gap-10">
+      <header>
+        <h1 className="text-lg font-semibold text-[var(--ds-text-primary)]">工作流</h1>
+        <p className="mt-1 text-sm text-[var(--ds-text-secondary)]">查看监测任务、调度配置与执行记录</p>
+      </header>
 
-      <WorkflowOverviewCards
-        gatewayOk={gateway?.ok}
-        overview={overview}
-        configCount={configs.length}
-      />
+      <StatStrip>
+        <StatStripItem label="Gateway" value={gateway?.ok ? '在线' : '离线'} />
+        <StatStripItem label="报告数" value={overview?.reports?.published_count ?? 0} />
+        <StatStripItem label="监测任务" value={overview?.price_monitoring?.monitor_count ?? 0} />
+        <StatStripItem label="外部调度" value={configs.length} />
+      </StatStrip>
 
       <MonitorTaskTable monitors={monitors} onSelect={(monitor) => setModalTarget({ mode: 'monitor', monitor })} />
 

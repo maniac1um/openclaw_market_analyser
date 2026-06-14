@@ -1,7 +1,7 @@
 import { cn } from '../../lib/utils'
 import { TIME_RANGE_LABELS, type TimeRange } from './types'
 
-const RANGES: TimeRange[] = ['1h', '6h', '24h', '7d', '30d', '90d', 'all']
+const RANGES: TimeRange[] = ['1h', '6h', '24h', '7d', '30d', 'all']
 
 export function ChartTimeRangePicker({
   value,
@@ -18,10 +18,10 @@ export function ChartTimeRangePicker({
           type="button"
           onClick={() => onChange(r)}
           className={cn(
-            'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+            'rounded-md px-2.5 py-1 text-xs font-medium transition-colors duration-[var(--ds-duration-fast)]',
             value === r
               ? 'bg-[var(--color-accent)] text-white'
-              : 'border border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-text)]',
+              : 'border border-[var(--ds-border)] text-[var(--ds-text-secondary)] hover:border-[var(--ds-border-hover)] hover:text-[var(--ds-text-primary)]',
           )}
         >
           {TIME_RANGE_LABELS[r]}

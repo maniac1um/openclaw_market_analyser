@@ -28,3 +28,14 @@ export function observationsToUPlotData(observations: ChartObservation[]): {
 export function useFilteredObservations(observations: ChartObservation[], range: TimeRange) {
   return useMemo(() => filterObservationsByRange(observations, range), [observations, range])
 }
+
+/** Coefficient of variation (std / mean) as a percentage. */
+export function computePriceVolatility(observations: ChartObservation[]): string {
+  if (observations.length < 2) return '—'
+  const prices = observations.map((o) => o.price)
+  const mean = prices.reduce((a, b) => a + b, 0) / prices.length
+  if (mean === 0) return '—'
+  const variance = prices.reduce((sum, p) => sum + (p - mean) ** 2, 0) / prices.length
+  const cv = (Math.sqrt(variance) / mean) * 100
+  return `${cv.toFixed(1)}%`
+}
