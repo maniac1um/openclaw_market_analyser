@@ -66,7 +66,7 @@ export function Drawer({
         type="button"
         aria-label="关闭"
         className={cn(
-          'ds-drawer-backdrop absolute inset-0 bg-[var(--overlay)] backdrop-blur-sm transition-opacity duration-[var(--ds-duration-drawer)] ease-out',
+          'ds-drawer-backdrop absolute inset-0 bg-[var(--overlay)] transition-opacity duration-[var(--ds-duration-drawer)] ease-out',
           visible ? 'opacity-100' : 'opacity-0',
         )}
         onClick={onClose}
