@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Trash2 } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
@@ -10,26 +10,37 @@ import { ErrorBanner, EmptyState } from '../components/ui/States'
 import {
   Panel,
   DataRow,
+  Drawer,
   CommandBar,
   CommandBarInput,
   CommandBarButton,
   Skeleton,
   TableSkeleton,
 } from '../components/ui/ds'
+import { ReportDetailDrawerContent, reportRowSubtitle } from '../features/reports/ReportDetailDrawerContent'
 import { useOnboardingActive } from '../features/onboarding/OnboardingProvider'
 import { ONBOARDING_EVENTS } from '../features/onboarding/types'
 
+const LIST_MAX_WIDTH = '900px'
+const DRAWER_WIDTH = 480
+
 export function ReportsPage() {
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [keyword, setKeyword] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [activeId, setActiveId] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const onboardingActive = useOnboardingActive()
 
   const reportsQuery = useQuery({
     queryKey: ['reports'],
     queryFn: api.listReports,
+  })
+
+  const detailQuery = useQuery({
+    queryKey: ['report', activeId],
+    queryFn: () => api.getReport(activeId!),
+    enabled: !!activeId,
   })
 
   const filtered = useMemo(() => {
@@ -48,29 +59,44 @@ export function ReportsPage() {
     onSuccess: () => {
       toast.success('报告已删除')
       setSelected(new Set())
+      setActiveId(null)
       queryClient.invalidateQueries({ queryKey: ['reports'] })
     },
     onError: (e: Error) => toast.error(e.message),
   })
 
   const openReport = (id: string) => {
-    navigate(`/app/reports/${id}`)
+    setActiveId(id)
     window.dispatchEvent(new CustomEvent(ONBOARDING_EVENTS.reportViewed))
   }
 
-  useEffect(() => {
-    const legacyId = searchParams.get('id')
-    if (legacyId) {
-      const qs = searchParams.get('onboarding')
-      navigate(qs ? `/app/reports/${legacyId}?onboarding=${qs}` : `/app/reports/${legacyId}`, { replace: true })
-      return
+  const closeDrawer = () => {
+    setActiveId(null)
+    if (searchParams.has('open') || searchParams.has('id') || searchParams.has('onboarding')) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('open')
+      next.delete('id')
+      if (next.get('onboarding') === 'step4') next.delete('onboarding')
+      setSearchParams(next, { replace: true })
     }
-    const onboarding = searchParams.get('onboarding')
-    const list = reportsQuery.data
-    if (onboarding !== 'step4' || !list?.length) return
-    navigate(`/app/reports/${list[0].ingest_id}?onboarding=step4`, { replace: true })
+  }
+
+  useEffect(() => {
+    const openId = searchParams.get('open') || searchParams.get('id')
+    if (openId && reportsQuery.data?.some((r) => r.ingest_id === openId)) {
+      setActiveId(openId)
+      window.dispatchEvent(new CustomEvent(ONBOARDING_EVENTS.reportViewed))
+    }
+  }, [searchParams, reportsQuery.data])
+
+  useEffect(() => {
+    if (searchParams.get('onboarding') !== 'step4') return
+    if (searchParams.get('open') || searchParams.get('id')) return
+    const first = reportsQuery.data?.[0]
+    if (!first) return
+    setActiveId(first.ingest_id)
     window.dispatchEvent(new CustomEvent(ONBOARDING_EVENTS.reportViewed))
-  }, [searchParams, reportsQuery.data, navigate])
+  }, [searchParams, reportsQuery.data])
 
   const toggleSelect = (id: string, checked: boolean) => {
     const next = new Set(selected)
@@ -79,14 +105,20 @@ export function ReportsPage() {
     setSelected(next)
   }
 
+  const activeListItem = filtered.find((r) => r.ingest_id === activeId)
+  const drawerTitle = detailQuery.data?.title || activeListItem?.title || '报告详情'
+
   if (reportsQuery.isLoading) {
     return (
-      <Panel className="w-full max-w-[360px] overflow-hidden p-0">
-        <div className="border-b border-[var(--ds-border)] p-3">
-          <Skeleton className="h-9 w-full rounded-lg" />
-        </div>
-        <TableSkeleton rows={8} />
-      </Panel>
+      <div className="mx-auto w-full" style={{ maxWidth: LIST_MAX_WIDTH }}>
+        <PageHeader />
+        <Panel className="overflow-hidden p-0">
+          <div className="border-b border-[var(--border)] p-3">
+            <Skeleton className="h-9 w-full rounded-lg" />
+          </div>
+          <TableSkeleton rows={8} />
+        </Panel>
+      </div>
     )
   }
 
@@ -101,14 +133,12 @@ export function ReportsPage() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-        <header className="mb-6">
-          <h1 className="text-lg font-semibold text-[var(--ds-text-primary)]">专题分析</h1>
-          <p className="mt-1 text-sm text-[var(--ds-text-secondary)]">浏览与管理 AI 生成的分析报告</p>
-        </header>
+    <>
+      <div className="mx-auto flex w-full flex-col" style={{ maxWidth: LIST_MAX_WIDTH }}>
+        <PageHeader />
 
-        <Panel className="flex w-full max-w-[360px] flex-col overflow-hidden p-0">
-          <div className="border-b border-[var(--ds-border)] p-3">
+        <Panel className="flex flex-col overflow-hidden p-0">
+          <div className="border-b border-[var(--border)] p-3">
             <CommandBar className="border-0 bg-transparent p-0 backdrop-blur-none">
               <CommandBarInput
                 value={keyword}
@@ -131,7 +161,7 @@ export function ReportsPage() {
                 </CommandBarButton>
               ) : null}
             </CommandBar>
-            <p className="mt-2 text-xs text-[var(--ds-text-secondary)]">共 {filtered.length} 条</p>
+            <p className="mt-2 text-xs text-[var(--text-secondary)]">共 {filtered.length} 条</p>
           </div>
 
           <div className="max-h-[calc(100dvh-220px)] overflow-y-auto">
@@ -152,7 +182,7 @@ export function ReportsPage() {
                 }
               />
             ) : (
-              <div className="divide-y divide-[var(--ds-border)]">
+              <div className="divide-y divide-[var(--border)]">
                 {filtered.map((r) => (
                   <div key={r.ingest_id} className="flex items-stretch">
                     <label className="flex shrink-0 cursor-pointer items-center px-3">
@@ -167,7 +197,7 @@ export function ReportsPage() {
                     </label>
                     <DataRow
                       title={r.title || '未命名报告'}
-                      subtitle={r.keyword}
+                      subtitle={reportRowSubtitle(r)}
                       meta={formatCnDateTime(r.generated_at)}
                       onClick={() => openReport(r.ingest_id)}
                       className="min-w-0 flex-1 pr-3"
@@ -178,6 +208,27 @@ export function ReportsPage() {
             )}
           </div>
         </Panel>
-    </div>
+      </div>
+
+      <Drawer open={activeId !== null} onClose={closeDrawer} title={drawerTitle} width={DRAWER_WIDTH}>
+        {detailQuery.isError ? (
+          <ErrorBanner
+            message={(detailQuery.error as Error).message}
+            onRetry={() => detailQuery.refetch()}
+          />
+        ) : (
+          <ReportDetailDrawerContent report={detailQuery.data} />
+        )}
+      </Drawer>
+    </>
+  )
+}
+
+function PageHeader() {
+  return (
+    <header className="mb-6">
+      <h1 className="text-lg font-semibold text-primary">专题分析</h1>
+      <p className="mt-1 text-sm text-[var(--text-secondary)]">浏览与管理 AI 生成的分析报告</p>
+    </header>
   )
 }

@@ -55,7 +55,7 @@ export const COACH_MESSAGES: Record<OnboardingCoachTarget, string> = {
   'monitor-row': '点击监测任务行查看详情与执行状态',
   'scheduler-run': '点击执行记录查看最近运行详情',
   'api-key-create': '可选：生成 API Key 供 OpenClaw Agent 使用',
-  'report-detail': '点击左侧报告查看详细分析',
+  'report-detail': '点击报告查看详细分析',
 }
 
 export const ONBOARDING_EVENTS = {

@@ -24,7 +24,7 @@ export function ReportSummaryMessage({ reportId, trend, risk, title }: ReportSum
       ) : null}
       {riskText ? <p className="text-sm text-[var(--ds-text-secondary)]">风险：{riskText}</p> : null}
       <Link
-        to={`/app/reports/${reportId}`}
+        to={`/app/reports?open=${encodeURIComponent(reportId)}`}
         className="mt-2 inline-block text-sm font-medium text-[var(--color-accent)] transition-opacity hover:opacity-80"
       >
         查看完整报告 →
