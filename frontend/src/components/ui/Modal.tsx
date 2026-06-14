@@ -32,7 +32,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
       <button
         type="button"
         aria-label="关闭"
-        className="absolute inset-0 bg-black/50"
+        className="absolute inset-0 bg-[var(--overlay)]"
         onClick={onClose}
       />
       <div

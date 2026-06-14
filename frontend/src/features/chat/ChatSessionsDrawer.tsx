@@ -79,7 +79,7 @@ export function ChatSessionsDrawer({ open, onClose }: ChatSessionsDrawerProps) {
             <button
               type="button"
               onClick={cancelStreaming}
-              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[var(--ds-border)] px-2 py-1 text-xs font-medium text-[var(--ds-text-primary)] transition-colors hover:bg-white/5"
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[var(--border)] px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-[var(--row-hover)]"
             >
               <Square className="h-3 w-3 fill-current" />
               停止
@@ -130,7 +130,7 @@ export function ChatSessionsDrawer({ open, onClose }: ChatSessionsDrawerProps) {
                 <button
                   type="button"
                   onClick={() => handleDelete(id)}
-                  className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-[var(--ds-text-secondary)] opacity-0 transition-opacity hover:bg-white/5 hover:text-red-500 group-hover:opacity-100"
+                  className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-[var(--text-secondary)] opacity-0 transition-opacity hover:bg-[var(--row-hover)] hover:text-red-500 group-hover:opacity-100"
                   aria-label="删除对话"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -149,7 +149,7 @@ export function ChatSessionsDrawer({ open, onClose }: ChatSessionsDrawerProps) {
             }
             if (confirm('清空所有本地对话记录？')) clearAll()
           }}
-          className="w-full rounded-lg px-3 py-2 text-left text-xs text-[var(--ds-text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--ds-text-primary)]"
+          className="w-full rounded-lg px-3 py-2 text-left text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--row-hover)] hover:text-primary"
         >
           清空所有对话
         </button>

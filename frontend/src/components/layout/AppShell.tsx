@@ -17,18 +17,12 @@ export function AppShell() {
   const [infoOpen, setInfoOpen] = useState(false)
 
   useEffect(() => {
-    document.documentElement.classList.add('dark')
-    const saved = localStorage.getItem('oc_dark')
-    if (saved === null) localStorage.setItem('oc_dark', '1')
-  }, [])
-
-  useEffect(() => {
     setNavOpen(false)
     setInfoOpen(false)
   }, [location.pathname])
 
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[var(--ds-bg-base)] text-[var(--ds-text-primary)]">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-background text-primary">
       <AppTopBar
         onOpenNav={() => setNavOpen(true)}
         onOpenInfo={() => setInfoOpen(true)}

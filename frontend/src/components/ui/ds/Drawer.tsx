@@ -66,7 +66,7 @@ export function Drawer({
         type="button"
         aria-label="关闭"
         className={cn(
-          'ds-drawer-backdrop absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-[var(--ds-duration-drawer)] ease-out',
+          'ds-drawer-backdrop absolute inset-0 bg-[var(--overlay)] backdrop-blur-sm transition-opacity duration-[var(--ds-duration-drawer)] ease-out',
           visible ? 'opacity-100' : 'opacity-0',
         )}
         onClick={onClose}
@@ -76,7 +76,7 @@ export function Drawer({
         aria-modal="true"
         aria-labelledby={title ? 'ds-drawer-title' : undefined}
         className={cn(
-          'ds-drawer-panel absolute top-0 flex h-full max-w-full flex-col border-[var(--ds-border)] bg-[var(--ds-bg-base)] will-change-transform transition-transform duration-[var(--ds-duration-drawer)] ease-[var(--ds-ease-out)]',
+          'ds-drawer-panel absolute top-0 flex h-full max-w-full flex-col border-[var(--border)] bg-background will-change-transform transition-transform duration-[var(--ds-duration-drawer)] ease-[var(--ds-ease-out)]',
           panelPosition,
           visible ? 'translate-x-0' : hiddenTransform,
           className,
@@ -84,15 +84,15 @@ export function Drawer({
         style={{ width: panelWidth }}
       >
         {title ? (
-          <header className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--ds-border)] px-6 py-4">
-            <h2 id="ds-drawer-title" className="text-base font-semibold text-[var(--ds-text-primary)]">
+          <header className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] px-6 py-4">
+            <h2 id="ds-drawer-title" className="text-base font-semibold text-primary">
               {title}
             </h2>
             <button
               type="button"
               onClick={onClose}
               aria-label="关闭抽屉"
-              className="rounded-md p-1 text-[var(--ds-text-secondary)] transition-colors duration-[var(--ds-duration-fast)] hover:bg-[var(--ds-row-hover)] hover:text-[var(--ds-text-primary)]"
+              className="rounded-md p-1 text-[var(--text-secondary)] transition-colors duration-[var(--ds-duration-fast)] hover:bg-[var(--row-hover)] hover:text-primary"
             >
               <X className="h-5 w-5" />
             </button>

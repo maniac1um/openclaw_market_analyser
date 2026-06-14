@@ -58,7 +58,7 @@ export function CoachMark({
       <button
         type="button"
         aria-label="关闭引导提示"
-        className="absolute inset-0 bg-black/45"
+        className="absolute inset-0 bg-[var(--overlay)]"
         onClick={onDismiss}
       />
       <div

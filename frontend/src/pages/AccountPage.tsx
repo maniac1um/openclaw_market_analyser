@@ -81,7 +81,7 @@ export function AccountPage() {
         {newKey ? (
           <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
             <p className="mb-2 font-medium text-amber-300">请立即复制（不会再次显示）</p>
-            <code className="block break-all rounded bg-white/5 p-2 font-mono text-xs">{newKey}</code>
+            <code className="block break-all rounded bg-[var(--code-bg)] p-2 font-mono text-xs">{newKey}</code>
             <Button
               variant="secondary"
               className="mt-2"

@@ -5,6 +5,7 @@ import { baseUPlotOpts } from './chartTheme'
 import { observationsToUPlotData } from './usePriceSeries'
 import type { ChartObservation } from './types'
 import { formatCnDateTime } from '../../lib/utils'
+import { useTheme } from '../../lib/ThemeProvider'
 
 type TooltipState = {
   left: number
@@ -23,6 +24,7 @@ export function PriceTrendChart({
   const metaRef = useRef<ChartObservation[]>([])
   const [tooltip, setTooltip] = useState<TooltipState>(null)
   const [containerWidth, setContainerWidth] = useState(400)
+  const { theme } = useTheme()
 
   useEffect(() => {
     const el = containerRef.current
@@ -80,7 +82,7 @@ export function PriceTrendChart({
       plotRef.current?.destroy()
       plotRef.current = null
     }
-  }, [observations, height])
+  }, [observations, height, theme])
 
   useEffect(() => {
     const el = containerRef.current
@@ -118,15 +120,15 @@ export function PriceTrendChart({
       <div ref={containerRef} className="w-full" style={{ height }} />
       {tooltip ? (
         <div
-          className="pointer-events-none absolute z-10 rounded-lg border border-[var(--ds-border-hover)] bg-[var(--ds-bg-base)]/95 px-3 py-2.5 text-xs shadow-lg shadow-black/20 backdrop-blur-md"
+          className="pointer-events-none absolute z-10 rounded-lg border border-[var(--border-hover)] bg-background/95 px-3 py-2.5 text-xs shadow-lg shadow-[var(--overlay)] backdrop-blur-md"
           style={{
             left: tooltipLeft,
             top: 8,
             width: tooltipWidth,
           }}
         >
-          <p className="truncate font-medium text-[var(--ds-text-primary)]">{tooltip.obs.item_name}</p>
-          <p className="mt-1 text-[var(--ds-text-secondary)]">{formatCnDateTime(tooltip.obs.captured_at)}</p>
+          <p className="truncate font-medium text-primary">{tooltip.obs.item_name}</p>
+          <p className="mt-1 text-[var(--text-secondary)]">{formatCnDateTime(tooltip.obs.captured_at)}</p>
           <p className="mt-1.5 font-semibold tabular-nums text-[var(--color-accent)]">
             ¥{tooltip.obs.price.toFixed(2)}
           </p>

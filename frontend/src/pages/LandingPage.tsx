@@ -3,16 +3,15 @@ import {
   FileText,
   LineChart,
   MessageSquare,
-  Moon,
   Newspaper,
   Settings,
-  Sun,
   Tags,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Card, CardContent } from '../components/ui/Card'
+import { ThemeToggle } from '../components/ui/ThemeToggle'
 import { DemoReportPreview } from '../features/landing/DemoReportPreview'
 import { DemoPriceChart } from '../features/landing/DemoPriceChart'
 import { loadDemoPriceTrend, type DemoPriceTrend } from '../features/landing/demoData'
@@ -58,33 +57,26 @@ const quickSteps = [
   { n: 4, title: '查看分析报告', desc: '在专题分析页阅读 AI 研判' },
 ]
 
-function LandingHeader({ dark, onToggleDark }: { dark: boolean; onToggleDark: () => void }) {
+function LandingHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--color-border)] bg-[var(--color-bg)]/90 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-[var(--border-solid)] bg-background/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-        <Link to="/" className="text-sm font-semibold tracking-tight">
+        <Link to="/" className="text-sm font-semibold tracking-tight text-primary">
           OpenClaw 分析平台
         </Link>
-        <nav className="hidden items-center gap-6 text-sm text-[var(--color-muted)] md:flex">
-          <a href="#features" className="hover:text-[var(--color-text)]">
+        <nav className="hidden items-center gap-6 text-sm text-[var(--text-secondary)] md:flex">
+          <a href="#features" className="hover:text-primary">
             功能
           </a>
-          <a href="#sample-report" className="hover:text-[var(--color-text)]">
+          <a href="#sample-report" className="hover:text-primary">
             示例
           </a>
-          <a href="/docs" className="hover:text-[var(--color-text)]">
+          <a href="/docs" className="hover:text-primary">
             文档
           </a>
         </nav>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onToggleDark}
-            className="rounded-md p-2 text-[var(--color-muted)] hover:bg-[var(--color-surface)]"
-            aria-label="切换主题"
-          >
-            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
+          <ThemeToggle />
           <Link to="/login?demo=1">
             <Button variant="secondary">试用登录</Button>
           </Link>
@@ -101,29 +93,15 @@ function LandingHeader({ dark, onToggleDark }: { dark: boolean; onToggleDark: ()
 }
 
 export function LandingPage() {
-  const [dark, setDark] = useState(false)
   const [priceDemo, setPriceDemo] = useState<DemoPriceTrend | null>(null)
-
-  useEffect(() => {
-    const saved = localStorage.getItem('oc_dark') === '1'
-    setDark(saved)
-    document.documentElement.classList.toggle('dark', saved)
-  }, [])
 
   useEffect(() => {
     void loadDemoPriceTrend().then(setPriceDemo)
   }, [])
 
-  function toggleDark() {
-    const next = !dark
-    setDark(next)
-    localStorage.setItem('oc_dark', next ? '1' : '0')
-    document.documentElement.classList.toggle('dark', next)
-  }
-
   return (
-    <div className="min-h-screen bg-[var(--color-bg)] text-[var(--color-text)]">
-      <LandingHeader dark={dark} onToggleDark={toggleDark} />
+    <div className="min-h-screen bg-background text-primary">
+      <LandingHeader />
 
       <main>
         {/* Hero */}

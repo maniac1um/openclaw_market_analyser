@@ -65,7 +65,7 @@ export function AppNavDrawer({ open, onClose, chatBusy }: AppNavDrawerProps) {
     <Drawer open={open} onClose={onClose} side="left" width={260} className="p-0">
       <div className="flex h-full flex-col pt-[env(safe-area-inset-top)]">
         <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--ds-border)] px-4">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--color-accent)] text-white">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--color-accent)] text-[var(--accent-fg)]">
             <FileText className="h-4 w-4" />
           </span>
           <span className="truncate text-sm font-semibold text-[var(--ds-text-primary)]">OpenClaw</span>

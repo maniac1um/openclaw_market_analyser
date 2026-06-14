@@ -20,8 +20,8 @@ export function ChartTimeRangePicker({
           className={cn(
             'rounded-md px-2.5 py-1 text-xs font-medium transition-colors duration-[var(--ds-duration-fast)]',
             value === r
-              ? 'bg-[var(--color-accent)] text-white'
-              : 'border border-[var(--ds-border)] text-[var(--ds-text-secondary)] hover:border-[var(--ds-border-hover)] hover:text-[var(--ds-text-primary)]',
+              ? 'bg-[var(--color-accent)] text-[var(--accent-fg)]'
+              : 'border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hover)] hover:text-primary',
           )}
         >
           {TIME_RANGE_LABELS[r]}

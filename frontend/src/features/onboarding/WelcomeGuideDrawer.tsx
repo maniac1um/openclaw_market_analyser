@@ -177,7 +177,7 @@ export function WelcomeGuideDrawer(props: Props) {
       <button
         type="button"
         aria-label="关闭引导"
-        className="fixed inset-0 z-[59] bg-black/30"
+        className="fixed inset-0 z-[59] bg-[var(--overlay)]"
         onClick={props.onClose}
       />
       <div className="fixed inset-x-0 bottom-0 z-[60] flex max-h-[min(85dvh,640px)] flex-col rounded-t-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl pb-[env(safe-area-inset-bottom)]">

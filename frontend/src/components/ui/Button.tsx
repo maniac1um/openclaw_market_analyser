@@ -1,10 +1,10 @@
 import { cn } from '../../lib/utils'
 
 const variants = {
-  primary: 'bg-[var(--color-accent)] text-white hover:opacity-90',
-  secondary: 'border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] hover:bg-[var(--color-bg)]',
+  primary: 'bg-[var(--color-accent)] text-[var(--accent-fg)] hover:opacity-90',
+  secondary: 'border border-[var(--border-solid)] bg-[var(--surface)] text-primary hover:bg-background',
   danger: 'border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950',
-  ghost: 'text-[var(--color-muted)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)]',
+  ghost: 'text-[var(--text-secondary)] hover:bg-background hover:text-primary',
 }
 
 export function Button({

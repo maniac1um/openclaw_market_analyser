@@ -68,8 +68,8 @@ export function KeywordTrackingPage() {
             onClick={() => setTab(t.id)}
             className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-[var(--ds-duration-fast)] ${
               tab === t.id
-                ? 'bg-[var(--color-accent)] text-white'
-                : 'text-[var(--ds-text-secondary)] hover:bg-[var(--ds-row-hover)] hover:text-[var(--ds-text-primary)]'
+                ? 'bg-[var(--color-accent)] text-[var(--accent-fg)]'
+                : 'text-[var(--text-secondary)] hover:bg-[var(--row-hover)] hover:text-primary'
             }`}
           >
             {t.label}
