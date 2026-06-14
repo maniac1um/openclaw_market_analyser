@@ -225,6 +225,33 @@ def list_news_library_from_db(limit: int = 100, keyword: str | None = None, *, c
     return out
 
 
+def get_news_library_item_from_db(item_id: int, *, ctx: QueryContext) -> dict | None:
+    import psycopg
+
+    ensure_news_library_tables()
+    clause, params = ctx.owner_clause()
+    sql = f"""
+    SELECT id, keyword, summary, source_url, title, source_name, published_at, created_at
+    FROM news_library
+    WHERE id = %s{clause}
+    """
+    with psycopg.connect(settings.news_database_url) as conn, conn.cursor() as cur:
+        cur.execute(sql, (int(item_id), *params))
+        row = cur.fetchone()
+        if not row:
+            return None
+        return {
+            "id": int(row[0]),
+            "keyword": row[1],
+            "summary": row[2],
+            "source_url": row[3],
+            "title": row[4],
+            "source_name": row[5],
+            "published_at": row[6].isoformat() if row[6] else None,
+            "created_at": row[7].isoformat() if row[7] else None,
+        }
+
+
 def delete_news_library_from_db(ids: list[int], ctx: QueryContext) -> dict:
     import psycopg
 

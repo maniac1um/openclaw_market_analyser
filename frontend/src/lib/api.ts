@@ -162,6 +162,7 @@ export const api = {
   topicCards: () => fetchJson<TopicCard[]>('/api/v1/public/topic/cards'),
   listNews: (keyword?: string) =>
     fetchJson<NewsLibraryItem[]>(`/api/v1/public/news/library?limit=200${keyword ? `&keyword=${encodeURIComponent(keyword)}` : ''}`),
+  getNews: (id: number) => fetchJson<NewsLibraryItem>(`/api/v1/public/news/library/${id}`),
   deleteNews: (ids: number[]) =>
     fetchJson('/api/v1/public/news/library/bulk-delete', {
       method: 'POST',

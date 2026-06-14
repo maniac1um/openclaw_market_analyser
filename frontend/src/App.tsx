@@ -9,6 +9,7 @@ import { HomePage } from './pages/HomePage'
 import { ReportsPage } from './pages/ReportsPage'
 import { ReportDetailPage } from './pages/ReportDetailPage'
 import { NewsPage } from './pages/NewsPage'
+import { NewsDetailPage } from './pages/NewsDetailPage'
 import { PriceTrendPage } from './pages/PriceTrendPage'
 import { WorkflowPage } from './pages/WorkflowPage'
 import { KeywordTrackingPage } from './pages/KeywordTrackingPage'
@@ -39,6 +40,11 @@ function LegacyReportDetailRedirect() {
   return <Navigate to={`/app/reports/${id}`} replace />
 }
 
+function LegacyNewsDetailRedirect() {
+  const { id } = useParams<{ id: string }>()
+  return <Navigate to={`/app/news/${id}`} replace />
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -56,6 +62,7 @@ export default function App() {
               />
             ))}
             <Route path="/reports/:id" element={<LegacyReportDetailRedirect />} />
+            <Route path="/news/:id" element={<LegacyNewsDetailRedirect />} />
             <Route element={<ProtectedRoute />}>
               <Route element={<OnboardingProvider><ChatProvider><AppShell /></ChatProvider></OnboardingProvider>}>
                 <Route path="/app" element={<HomePage />} />
@@ -63,6 +70,7 @@ export default function App() {
                 <Route path="/app/reports/:id" element={<ReportDetailPage />} />
                 <Route path="/app/topic-analysis" element={<Navigate to="/app/reports" replace />} />
                 <Route path="/app/news" element={<NewsPage />} />
+                <Route path="/app/news/:id" element={<NewsDetailPage />} />
                 <Route path="/app/price-trend" element={<PriceTrendPage />} />
                 <Route path="/app/workflow" element={<WorkflowPage />} />
                 <Route path="/app/keyword-tracking" element={<KeywordTrackingPage />} />

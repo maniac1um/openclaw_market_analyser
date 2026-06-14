@@ -63,6 +63,15 @@ def public_news_library(ctx: QueryCtx, limit: int = 100, keyword: str | None = N
     return pq.list_news_library_from_db(limit=cap, keyword=keyword, ctx=ctx)
 
 
+@router.get("/public/news/library/{item_id}", summary="用户侧新闻库详情")
+def public_news_library_item(item_id: int, ctx: QueryCtx) -> dict:
+    pq.require_public_news_db()
+    item = pq.get_news_library_item_from_db(item_id, ctx=ctx)
+    if not item:
+        raise HTTPException(status_code=404, detail="新闻不存在或无权访问")
+    return item
+
+
 @router.post("/public/news/library/bulk-delete", summary="用户侧批量删除新闻库条目")
 def public_news_library_bulk_delete(
     request: NewsBulkDeleteRequest,
