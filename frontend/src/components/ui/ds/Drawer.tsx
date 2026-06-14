@@ -9,11 +9,21 @@ type DrawerProps = {
   title?: string
   children: ReactNode
   className?: string
+  side?: 'left' | 'right'
+  width?: number
 }
 
 const ANIMATION_MS = 300
 
-export function Drawer({ open, onClose, title, children, className }: DrawerProps) {
+export function Drawer({
+  open,
+  onClose,
+  title,
+  children,
+  className,
+  side = 'right',
+  width,
+}: DrawerProps) {
   const [mounted, setMounted] = useState(open)
   const [visible, setVisible] = useState(open)
 
@@ -43,6 +53,10 @@ export function Drawer({ open, onClose, title, children, className }: DrawerProp
 
   if (!mounted) return null
 
+  const panelWidth = width ?? (side === 'left' ? 260 : 480)
+  const hiddenTransform = side === 'left' ? '-translate-x-full' : 'translate-x-full'
+  const panelPosition = side === 'left' ? 'left-0 border-r' : 'right-0 border-l'
+
   return createPortal(
     <div
       className={cn('fixed inset-0 z-50', visible ? 'pointer-events-auto' : 'pointer-events-none')}
@@ -62,10 +76,12 @@ export function Drawer({ open, onClose, title, children, className }: DrawerProp
         aria-modal="true"
         aria-labelledby={title ? 'ds-drawer-title' : undefined}
         className={cn(
-          'absolute top-0 right-0 flex h-full w-[480px] max-w-full flex-col border-l border-[var(--ds-border)] bg-[var(--ds-bg-base)] will-change-transform transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
-          visible ? 'translate-x-0' : 'translate-x-full',
+          'absolute top-0 flex h-full max-w-full flex-col border-[var(--ds-border)] bg-[var(--ds-bg-base)] will-change-transform transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
+          panelPosition,
+          visible ? 'translate-x-0' : hiddenTransform,
           className,
         )}
+        style={{ width: panelWidth }}
       >
         {title ? (
           <header className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--ds-border)] px-6 py-4">
@@ -82,7 +98,14 @@ export function Drawer({ open, onClose, title, children, className }: DrawerProp
             </button>
           </header>
         ) : null}
-        <div className="min-h-0 flex-1 overflow-y-auto p-6 transition-opacity duration-200 ease-out" style={{ opacity: visible ? 1 : 0 }}>
+        <div
+          className={cn(
+            'min-h-0 flex-1 overflow-y-auto transition-opacity duration-200 ease-out',
+            !title && 'p-0',
+            title && 'p-6',
+          )}
+          style={{ opacity: visible ? 1 : 0 }}
+        >
           {children}
         </div>
       </aside>

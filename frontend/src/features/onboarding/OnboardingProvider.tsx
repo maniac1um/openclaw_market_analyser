@@ -81,12 +81,12 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   })
 
   const finishIfComplete = useCallback((next: OnboardingPersistedState) => {
-    if (isMainFlowComplete(next)) {
-      markOnboardingDone()
-      setOpen(false)
-      setCoachTarget(null)
-      toast.success('恭喜完成新手引导！')
-    }
+    if (!isMainFlowComplete(next)) return
+    if (isOnboardingDone()) return
+    markOnboardingDone()
+    setOpen(false)
+    setCoachTarget(null)
+    toast.success('恭喜完成新手引导！')
   }, [])
 
   const patchState = useCallback((patch: Partial<OnboardingPersistedState>) => {
@@ -141,10 +141,12 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (autoOpenedRef.current || !user || user.is_demo) return
     if (isOnboardingDone() || isOnboardingSnoozed()) return
-    if (!isMainFlowComplete(loadOnboardingState())) {
-      setOpen(true)
-      autoOpenedRef.current = true
+    if (isMainFlowComplete(loadOnboardingState())) {
+      markOnboardingDone()
+      return
     }
+    setOpen(true)
+    autoOpenedRef.current = true
   }, [user])
 
   useEffect(() => {

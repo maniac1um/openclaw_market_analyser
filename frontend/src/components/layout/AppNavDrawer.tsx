@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { FileText, Loader2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { Drawer } from '../ui/ds'
 
 export const sidebarNav = [
   { to: '/app', label: '首页', end: true },
@@ -12,13 +13,7 @@ export const sidebarNav = [
   { to: '/app/account', label: '账户' },
 ] as const
 
-type AppSidebarProps = {
-  chatBusy?: boolean
-  onNavigate?: () => void
-  className?: string
-}
-
-function SidebarNavItem({
+function NavItem({
   item,
   chatBusy,
   onNavigate,
@@ -34,7 +29,7 @@ function SidebarNavItem({
       onClick={onNavigate}
       className={({ isActive }) =>
         cn(
-          'relative flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm transition-colors',
+          'relative flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150',
           isActive
             ? 'font-medium text-[var(--ds-text-primary)]'
             : 'text-[var(--ds-text-secondary)] hover:bg-white/5 hover:text-[var(--ds-text-primary)]',
@@ -51,9 +46,7 @@ function SidebarNavItem({
           ) : null}
           <span className="pl-1">{item.label}</span>
           {item.to === '/app' && chatBusy ? (
-            <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-medium text-[var(--color-accent)]">
-              <Loader2 className="h-3 w-3 animate-spin" />
-            </span>
+            <Loader2 className="ml-auto h-3 w-3 animate-spin text-[var(--color-accent)]" />
           ) : null}
         </>
       )}
@@ -61,26 +54,28 @@ function SidebarNavItem({
   )
 }
 
-export function AppSidebar({ chatBusy, onNavigate, className }: AppSidebarProps) {
-  return (
-    <aside
-      className={cn(
-        'flex w-[220px] shrink-0 flex-col border-r border-[var(--ds-border)] bg-[var(--ds-bg-base)]',
-        className,
-      )}
-    >
-      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--ds-border)] px-4">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--color-accent)] text-white">
-          <FileText className="h-4 w-4" />
-        </span>
-        <span className="truncate text-sm font-semibold text-[var(--ds-text-primary)]">OpenClaw</span>
-      </div>
+type AppNavDrawerProps = {
+  open: boolean
+  onClose: () => void
+  chatBusy?: boolean
+}
 
-      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3" aria-label="主导航">
-        {sidebarNav.map((item) => (
-          <SidebarNavItem key={item.to} item={item} chatBusy={chatBusy} onNavigate={onNavigate} />
-        ))}
-      </nav>
-    </aside>
+export function AppNavDrawer({ open, onClose, chatBusy }: AppNavDrawerProps) {
+  return (
+    <Drawer open={open} onClose={onClose} side="left" width={260} className="p-0">
+      <div className="flex h-full flex-col pt-[env(safe-area-inset-top)]">
+        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--ds-border)] px-4">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--color-accent)] text-white">
+            <FileText className="h-4 w-4" />
+          </span>
+          <span className="truncate text-sm font-semibold text-[var(--ds-text-primary)]">OpenClaw</span>
+        </div>
+        <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3" aria-label="主导航">
+          {sidebarNav.map((item) => (
+            <NavItem key={item.to} item={item} chatBusy={chatBusy} onNavigate={onClose} />
+          ))}
+        </nav>
+      </div>
+    </Drawer>
   )
 }

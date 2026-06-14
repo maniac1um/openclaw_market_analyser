@@ -6,10 +6,10 @@ import { useOnboarding } from '../../features/onboarding/OnboardingProvider'
 import { CommandBar, CommandBarInput } from '../ui/ds'
 
 type AppTopBarProps = {
-  onOpenMobileNav?: () => void
+  onOpenNav?: () => void
 }
 
-export function AppTopBar({ onOpenMobileNav }: AppTopBarProps) {
+export function AppTopBar({ onOpenNav }: AppTopBarProps) {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const { openGuide } = useOnboarding()
@@ -41,8 +41,8 @@ export function AppTopBar({ onOpenMobileNav }: AppTopBarProps) {
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-[var(--ds-border)] px-4 md:px-8">
       <button
         type="button"
-        onClick={onOpenMobileNav}
-        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--ds-text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--ds-text-primary)] md:hidden"
+        onClick={onOpenNav}
+        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--ds-text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--ds-text-primary)]"
         aria-label="打开导航菜单"
       >
         <Menu className="h-5 w-5" />

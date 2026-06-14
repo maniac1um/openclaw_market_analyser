@@ -14,7 +14,8 @@ export type OnboardingPersistedState = {
   step4: boolean
 }
 
-export const ONBOARDING_DONE_KEY = 'oc_onboarding_done'
+export const ONBOARDING_DONE_KEY = 'onboarding_done'
+export const ONBOARDING_DONE_LEGACY_KEY = 'oc_onboarding_done'
 export const ONBOARDING_SNOOZE_KEY = 'oc_onboarding_snooze'
 export const ONBOARDING_STATE_KEY = 'oc_onboarding_state'
 

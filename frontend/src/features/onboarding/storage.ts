@@ -1,5 +1,6 @@
 import {
   ONBOARDING_DONE_KEY,
+  ONBOARDING_DONE_LEGACY_KEY,
   ONBOARDING_SNOOZE_KEY,
   ONBOARDING_STATE_KEY,
   type OnboardingPersistedState,
@@ -28,15 +29,24 @@ export function saveOnboardingState(state: OnboardingPersistedState) {
 }
 
 export function isOnboardingDone(): boolean {
-  return localStorage.getItem(ONBOARDING_DONE_KEY) === '1'
+  if (localStorage.getItem(ONBOARDING_DONE_KEY) === 'true') return true
+  // legacy: oc_onboarding_done === '1'
+  if (localStorage.getItem(ONBOARDING_DONE_LEGACY_KEY) === '1') {
+    localStorage.setItem(ONBOARDING_DONE_KEY, 'true')
+    localStorage.removeItem(ONBOARDING_DONE_LEGACY_KEY)
+    return true
+  }
+  return false
 }
 
 export function markOnboardingDone() {
-  localStorage.setItem(ONBOARDING_DONE_KEY, '1')
+  localStorage.setItem(ONBOARDING_DONE_KEY, 'true')
+  localStorage.removeItem(ONBOARDING_DONE_LEGACY_KEY)
 }
 
 export function clearOnboardingDone() {
   localStorage.removeItem(ONBOARDING_DONE_KEY)
+  localStorage.removeItem(ONBOARDING_DONE_LEGACY_KEY)
 }
 
 export function isOnboardingSnoozed(): boolean {

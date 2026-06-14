@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Trash2 } from 'lucide-react'
+import { Eye, Trash2 } from 'lucide-react'
 import { api, ApiError } from '../lib/api'
 import { cn, formatCnDateTime } from '../lib/utils'
 import { Button } from '../components/ui/Button'
@@ -16,28 +16,28 @@ import {
   CommandBarButton,
   TableSkeleton,
 } from '../components/ui/ds'
-import { ReportDrawerContent, ReportDrawerSkeleton } from '../features/reports/ReportDrawerContent'
+import { ReportPreviewBody } from '../features/reports/ReportDetailBody'
 import { useOnboardingActive } from '../features/onboarding/OnboardingProvider'
 import { ONBOARDING_EVENTS } from '../features/onboarding/types'
 
 export function ReportsPage() {
-  const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [keyword, setKeyword] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [previewId, setPreviewId] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const onboardingActive = useOnboardingActive()
-
-  const activeId = searchParams.get('id') || undefined
 
   const reportsQuery = useQuery({
     queryKey: ['reports'],
     queryFn: api.listReports,
   })
 
-  const detailQuery = useQuery({
-    queryKey: ['report', activeId],
-    queryFn: () => api.getReport(activeId!),
-    enabled: !!activeId,
+  const previewQuery = useQuery({
+    queryKey: ['report', previewId],
+    queryFn: () => api.getReport(previewId!),
+    enabled: !!previewId,
   })
 
   const filtered = useMemo(() => {
@@ -57,25 +57,28 @@ export function ReportsPage() {
       toast.success('报告已删除')
       setSelected(new Set())
       queryClient.invalidateQueries({ queryKey: ['reports'] })
-      if (activeId) setSearchParams({})
     },
     onError: (e: Error) => toast.error(e.message),
   })
 
-  const pickReport = (id: string) => {
-    setSearchParams({ id })
+  const openReport = (id: string) => {
+    navigate(`/app/reports/${id}`)
     window.dispatchEvent(new CustomEvent(ONBOARDING_EVENTS.reportViewed))
   }
 
-  const closeDrawer = () => setSearchParams({})
-
   useEffect(() => {
+    const legacyId = searchParams.get('id')
+    if (legacyId) {
+      const qs = searchParams.get('onboarding')
+      navigate(qs ? `/app/reports/${legacyId}?onboarding=${qs}` : `/app/reports/${legacyId}`, { replace: true })
+      return
+    }
     const onboarding = searchParams.get('onboarding')
     const list = reportsQuery.data
-    if (onboarding !== 'step4' || activeId || !list?.length) return
-    setSearchParams({ id: list[0].ingest_id, onboarding: 'step4' })
+    if (onboarding !== 'step4' || !list?.length) return
+    navigate(`/app/reports/${list[0].ingest_id}?onboarding=step4`, { replace: true })
     window.dispatchEvent(new CustomEvent(ONBOARDING_EVENTS.reportViewed))
-  }, [searchParams, activeId, reportsQuery.data, setSearchParams])
+  }, [searchParams, reportsQuery.data, navigate])
 
   const toggleSelect = (id: string, checked: boolean) => {
     const next = new Set(selected)
@@ -84,8 +87,7 @@ export function ReportsPage() {
     setSelected(next)
   }
 
-  const activeReport = detailQuery.data
-  const drawerTitle = activeReport?.title || '报告详情'
+  const previewReport = previewQuery.data
 
   if (reportsQuery.isLoading) {
     return (
@@ -173,12 +175,23 @@ export function ReportsPage() {
                       title={r.title || '未命名报告'}
                       subtitle={r.keyword}
                       meta={formatCnDateTime(r.generated_at)}
-                      onClick={() => pickReport(r.ingest_id)}
-                      className={cn(
-                        'flex-1 pr-3',
-                        activeId === r.ingest_id && 'bg-white/5',
-                      )}
+                      onClick={() => openReport(r.ingest_id)}
+                      className="min-w-0 flex-1 pr-1"
                     />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setPreviewId(r.ingest_id)
+                      }}
+                      className={cn(
+                        'mr-2 flex shrink-0 items-center self-center rounded-lg p-2',
+                        'text-[var(--ds-text-secondary)] transition-colors hover:bg-white/5 hover:text-[var(--ds-text-primary)]',
+                      )}
+                      aria-label="快速预览"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -187,16 +200,23 @@ export function ReportsPage() {
         </Panel>
       </div>
 
-      <Drawer open={!!activeId} onClose={closeDrawer} title={drawerTitle}>
-        <div data-onboarding="report-detail">
-          {detailQuery.isLoading ? (
-            <ReportDrawerSkeleton />
-          ) : detailQuery.isError ? (
-            <ErrorBanner message={(detailQuery.error as Error).message} onRetry={() => detailQuery.refetch()} />
-          ) : activeReport ? (
-            <ReportDrawerContent report={activeReport} />
-          ) : null}
-        </div>
+      <Drawer
+        open={!!previewId}
+        onClose={() => setPreviewId(null)}
+        title={previewReport?.title || '报告预览'}
+      >
+        {previewQuery.isLoading ? (
+          <p className="text-sm text-[var(--ds-text-secondary)]">加载中…</p>
+        ) : previewQuery.isError ? (
+          <ErrorBanner message={(previewQuery.error as Error).message} onRetry={() => previewQuery.refetch()} />
+        ) : previewReport ? (
+          <div className="flex flex-col gap-6">
+            <ReportPreviewBody report={previewReport} />
+            <Button variant="primary" className="w-full" onClick={() => openReport(previewReport.ingest_id)}>
+              查看完整报告
+            </Button>
+          </div>
+        ) : null}
       </Drawer>
     </>
   )
