@@ -119,8 +119,10 @@ sequenceDiagram
 | `app/db/public_queries.py` | 三库 SQL 查询 |
 | `app/services/news_analysis_service.py` | 新闻+价格联合分析 |
 | `app/workers/job_runner.py` | 后台渲染与发布 |
-| `frontend/src/features/chat/` | ChatProvider、ChatPage、localStorage 会话 |
-| `frontend/` | React SPA |
+| `frontend/src/features/workspace/` | 首页对话 UI（WorkspacePage） |
+| `frontend/src/features/chat/` | ChatProvider、pending 轮询、ChatSessionsDrawer |
+| `frontend/src/components/layout/` | AppShell、导航 Drawer、主题 |
+| `frontend/` | React 19 SPA |
 
 ## 演进规划
 

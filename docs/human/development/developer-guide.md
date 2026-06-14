@@ -18,7 +18,10 @@ openclaw_news_publisher/
 │   └── utils/               # 格式化、情绪分析
 ├── frontend/                # React SPA (Vite + Tailwind)
 │   ├── android/             # Capacitor Android 工程（apk-test 分支）
-│   └── src/features/chat/   # ChatProvider、ChatPage、pendingRuns
+│   ├── src/components/ui/ds/   # Design System（Panel、Drawer、DataRow…）
+│   ├── src/components/layout/    # AppShell、AppTopBar、AppNavDrawer
+│   ├── src/features/workspace/   # 首页对话 UI
+│   └── src/features/chat/        # ChatProvider、pending 轮询、ChatSessionsDrawer
 ├── docs/                    # human / openclaw / reports / archive
 ├── scripts/                 # 部署与运维脚本
 ├── tests/                   # pytest
@@ -34,8 +37,11 @@ openclaw_news_publisher/
 | `services/intake_service.py` | 幂等、入队逻辑 |
 | `workers/job_runner.py` | 流水线步骤 |
 | `api/v1/public.py` | 新增公开 API |
-| `frontend/src/pages/` | UI 页面 |
-| `frontend/src/features/chat/` | ChatProvider、ChatPage、pending 轮询 |
+| `frontend/src/pages/` | UI 页面（列表 + 全屏详情） |
+| `frontend/src/components/ui/ds/` | 设计系统组件 |
+| `frontend/src/components/layout/` | AppShell、导航 Drawer |
+| `frontend/src/features/workspace/` | 首页对话 |
+| `frontend/src/features/chat/` | ChatProvider、pending 轮询 |
 | `frontend/src/lib/api.ts` | 前端 API 类型 |
 
 ## 开发规范
@@ -49,9 +55,10 @@ openclaw_news_publisher/
 
 ### 前端
 
-- React 18 + TypeScript + Tailwind CSS v4
+- React 19 + TypeScript + Tailwind CSS v4
 - 数据获取：TanStack Query
-- 路由：React Router v6
+- 路由：React Router v7
+- 布局与主题：见 [portal-ui.md](../frontend/portal-ui.md)（居中列表、左侧导航 Drawer、Dark/Light）
 - 构建：`cd frontend && npm run build`
 - Android 内测 APK（Capacitor）：见 [android-app.md](../mobile/android-app.md)，在 `apk-test` 分支、`frontend/android/`
 

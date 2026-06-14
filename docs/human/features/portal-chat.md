@@ -1,6 +1,6 @@
 # 门户 OpenClaw 对话
 
-门户首页（`/`）提供与 OpenClaw Gateway 的自然语言对话。消息经 FastAPI WebSocket 代理到 Gateway，回复流式回传；**切换 SPA 页面不会中断服务端生成**，客户端通过轮询恢复状态。
+门户首页（`/app`）提供与 OpenClaw Gateway 的自然语言对话。消息经 FastAPI WebSocket 代理到 Gateway，回复流式回传；**切换 SPA 页面不会中断服务端生成**，客户端通过轮询恢复状态。
 
 ## 架构
 
@@ -36,7 +36,7 @@ sequenceDiagram
 | 权限校验 | `app/services/gateway_permission_checker.py` | USER/ADMIN 白名单、上下文注入 |
 | 审计 | `app/services/gateway_audit_service.py` | `gateway_audit_events` 结构化日志 |
 | 前端 Provider | `frontend/src/features/chat/ChatProvider.tsx` | 全站常驻 WS、pending 轮询、发送/取消 |
-| 对话 UI | `frontend/src/features/chat/ChatPage.tsx` | 首页布局与气泡 |
+| 对话 UI | `frontend/src/features/workspace/WorkspacePage.tsx` | 首页（`/app`）布局与气泡 |
 | 本地会话 | `frontend/src/features/chat/storage.ts` | `localStorage` 多会话历史 |
 | 进行中标记 | `frontend/src/features/chat/pendingRuns.ts` | `localStorage` 未完成 `sessionKey` 列表 |
 

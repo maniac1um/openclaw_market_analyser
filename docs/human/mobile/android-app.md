@@ -131,7 +131,9 @@ adb install -r frontend/android/app/build/outputs/apk/debug/app-debug.apk
 1. 打开 App → 显示登录页（远程 `https://115.120.202.223`）
 2. 登录 / 注册
 3. 首页 OpenClaw 对话（WebSocket `wss://`）
-4. 专题分析：列表 → 详情 → 返回
+4. 专题分析 / 新闻：居中列表 → 点击进入全屏详情 → 返回
+5. 左侧菜单 ☰：展开导航 Drawer（右侧内容不模糊，仅 dim）
+6. 主题切换 🌙/☀️
 
 若 **白屏**：Logcat 过滤 `SSLHandshakeException` — 多为证书与 `openclaw_server.crt` 不一致，或 IP 变更未更新证书。
 

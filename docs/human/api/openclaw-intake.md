@@ -157,6 +157,7 @@
 | POST | `/api/v1/openclaw/news/library` | API Key |
 | GET | `/api/v1/openclaw/news/library` | API Key |
 | GET | `/api/v1/public/news/library` | JWT 或 `X-Api-Key` |
+| GET | `/api/v1/public/news/library/{item_id}` | JWT 或 `X-Api-Key` |
 | POST | `/api/v1/public/news/library/bulk-delete` | JWT 或 `X-Api-Key` |
 
 ---

@@ -9,7 +9,7 @@ OpenClaw News Publisher 是多用户 SaaS 门户：OpenClaw Agent 通过 API 提
 | 路径 | 职责 | 备注 |
 |------|------|------|
 | `app/` | FastAPI 后端 | **不是** `backend/` |
-| `frontend/` | React 18 + Vite SPA | 生产构建输出 `frontend/dist/` |
+| `frontend/` | React 19 + Vite SPA | 生产构建输出 `frontend/dist/` |
 | `skills/` | OpenClaw Gateway 运行时 Skill | `extraDirs` 权威路径 |
 | `docs/` | 人类 / OpenClaw / 报告 / 归档文档 | 本目录 `project-brain/` |
 | `scripts/` | 部署、本地启停、DB 初始化 SQL | 见 `deploy/`、`local/`、`docker/` |

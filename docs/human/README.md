@@ -15,6 +15,7 @@
 | API 契约 | [api/openclaw-intake.md](api/openclaw-intake.md) |
 | Gateway 隔离（P0） | [security/gateway-isolation.md](security/gateway-isolation.md) |
 | 门户对话 | [features/portal-chat.md](features/portal-chat.md) |
+| 门户 UI | [frontend/portal-ui.md](frontend/portal-ui.md) |
 | 多用户测试 | [testing/multi-user-test-plan.md](testing/multi-user-test-plan.md) |
 
 全项目索引：[PROJECT_DOCUMENT_INDEX.md](../PROJECT_DOCUMENT_INDEX.md)

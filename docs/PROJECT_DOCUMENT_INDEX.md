@@ -117,6 +117,7 @@ docs/
 | [development/developer-guide.md](human/development/developer-guide.md) | 开发规范 |
 | [development/cross-platform.md](human/development/cross-platform.md) | Win/Ubuntu 协作 |
 | [features/portal-chat.md](human/features/portal-chat.md) | 门户对话实现 |
+| [frontend/portal-ui.md](human/frontend/portal-ui.md) | 门户 UI（布局、主题、路由、Design System） |
 | [mobile/android-app.md](human/mobile/android-app.md) | Capacitor APK |
 | [api/openclaw-intake.md](human/api/openclaw-intake.md) | **API 契约权威** |
 | [security/gateway-isolation.md](human/security/gateway-isolation.md) | **P0** Gateway 隔离 |

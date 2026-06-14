@@ -1,4 +1,4 @@
-# OpenClaw News Publisher
+# OpenClaw Market Analyser
 
 接收 OpenClaw Agent 结构化新闻分析，完成入站校验、幂等落盘、渲染发布，并通过现代化 Web 界面展示市场研判。
 
@@ -24,6 +24,7 @@ flowchart LR
 | 新闻库 | 关键词新闻沉淀与浏览 |
 | 工作流 | 监测创建、联合分析、系统诊断 |
 | 多用户门户 | 注册/登录、JWT、per-user API Key、数据隔离 |
+| 门户 UI | 居中内容布局、左侧导航 Drawer、Dark/Light 主题、Design System（`ds/*`） |
 | OpenClaw 对话 | 门户 WebSocket 聊天（需 Gateway）；**USER/ADMIN 分 Agent 隔离**；后台生成 + 轮询恢复 |
 
 完整 API 见 [docs/human/api/openclaw-intake.md](docs/human/api/openclaw-intake.md) 与 `/docs`（Swagger）。
@@ -31,7 +32,7 @@ flowchart LR
 ## 技术栈
 
 - **后端**：Python 3.11+ / FastAPI / Pydantic / psycopg
-- **前端**：React 18 / TypeScript / Vite / Tailwind CSS
+- **前端**：React 19 / TypeScript / Vite / Tailwind CSS v4
 - **数据库**：PostgreSQL × 3（reports / monitoring / news）
 - **OpenClaw 运行时**：`skills/` Skill 包（Gateway `extraDirs` 权威路径）
 
@@ -66,7 +67,10 @@ open http://localhost:5173
 
 生产单体部署：`cd frontend && npm run build && uvicorn app.main:app --port 8000`
 
+一键部署（Docker）：`bash deploy.sh --docker`
+
 - **首次部署（1 小时）**：[docs/human/deployment/getting-started.md](docs/human/deployment/getting-started.md)
+- **门户 UI（布局 / 主题 / 路由）**：[docs/human/frontend/portal-ui.md](docs/human/frontend/portal-ui.md)
 - 本地开发：[docs/human/deployment/local.md](docs/human/deployment/local.md)
 - 服务器 / 生产：[docs/human/deployment/production.md](docs/human/deployment/production.md)
 - **Android 内测 APK**：[docs/human/mobile/android-app.md](docs/human/mobile/android-app.md)（`apk-test` 分支）
@@ -136,6 +140,7 @@ pytest -q
 | `scripts/local/cleanup.sh` | 安全清理缓存与临时文件（`--apply` 执行删除） |
 | `scripts/deploy/one-click-docker.sh` | Docker 一键部署（应用 + PostgreSQL） |
 | `scripts/deploy/one-click-linux.sh` | Linux 裸机一键部署（不含 PostgreSQL） |
+| `deploy.sh` | 编排：git pull、构建、Docker/裸机重启、健康检查 |
 
 ## License
 
