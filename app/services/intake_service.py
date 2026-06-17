@@ -8,6 +8,12 @@ from fastapi import BackgroundTasks, HTTPException, status
 from app.core.config import settings
 from app.db.models import IngestRecord
 from app.schemas.report import OpenClawReportIn
+from app.services.token_service import (
+    BILLING_REPORT_ONLY,
+    consume_tokens_http,
+    fixed_cost_for_source,
+    metadata_for_billing_source,
+)
 from app.workers.job_runner import JobRunner
 
 
@@ -23,6 +29,8 @@ class IntakeService:
         request_id: str | None,
         background_tasks: BackgroundTasks,
         user_id: str | None = None,
+        portal_role: str = "USER",
+        bill: bool = True,
     ) -> tuple[str, str]:
         if not request_id:
             raise HTTPException(
@@ -33,6 +41,18 @@ class IntakeService:
         duplicate = self.repo.get_by_request_and_task(request_id=request_id, task_id=report.task_id)
         if duplicate:
             return duplicate.ingest_id, duplicate.status
+
+        if bill and user_id:
+            consume_tokens_http(
+                user_id=user_id,
+                amount=fixed_cost_for_source(BILLING_REPORT_ONLY),
+                source=BILLING_REPORT_ONLY,
+                portal_role=portal_role,
+                metadata=metadata_for_billing_source(
+                    BILLING_REPORT_ONLY,
+                    keyword=report.keyword,
+                ),
+            )
 
         ingest_id = str(uuid.uuid4())
         raw_path = self._persist_raw(ingest_id=ingest_id, report=report)

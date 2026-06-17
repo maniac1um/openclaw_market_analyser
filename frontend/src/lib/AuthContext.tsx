@@ -7,6 +7,7 @@ export type AuthUser = {
   username: string
   role: string
   is_demo?: boolean
+  token_balance?: number
 }
 
 type AuthContextValue = {
@@ -17,10 +18,16 @@ type AuthContextValue = {
   register: (email: string, username: string, password: string) => Promise<void>
   logout: () => Promise<void>
   refreshSession: () => Promise<boolean>
+  refreshUser: () => Promise<void>
   getAuthHeaders: () => Record<string, string>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
+
+function readCsrfCookie(): string | null {
+  const match = document.cookie.match(/(?:^|; )openclaw_csrf=([^;]*)/)
+  return match ? decodeURIComponent(match[1]) : null
+}
 
 async function parseAuthResponse(res: Response): Promise<{ user: AuthUser; access_token: string }> {
   if (!res.ok) {
@@ -46,6 +53,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccessToken(payload.access_token)
   }, [])
 
+  const getAuthHeaders = useCallback((): Record<string, string> => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (accessToken) headers.Authorization = `Bearer ${accessToken}`
+    const csrf = readCsrfCookie()
+    if (csrf) headers['X-CSRF-Token'] = csrf
+    return headers
+  }, [accessToken])
+
   const refreshSession = useCallback(async (): Promise<boolean> => {
     const res = await fetch('/api/v1/public/auth/refresh', {
       method: 'POST',
@@ -61,18 +76,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return true
   }, [applyAuth])
 
-function readCsrfCookie(): string | null {
-  const match = document.cookie.match(/(?:^|; )openclaw_csrf=([^;]*)/)
-  return match ? decodeURIComponent(match[1]) : null
-}
-
-  const getAuthHeaders = useCallback((): Record<string, string> => {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (accessToken) headers.Authorization = `Bearer ${accessToken}`
-    const csrf = readCsrfCookie()
-    if (csrf) headers['X-CSRF-Token'] = csrf
-    return headers
-  }, [accessToken])
+  const refreshUser = useCallback(async () => {
+    const res = await fetch('/api/v1/public/auth/me', {
+      credentials: 'include',
+      headers: getAuthHeaders(),
+    })
+    if (res.ok) {
+      const me = (await res.json()) as AuthUser
+      setUser(me)
+      return
+    }
+    await refreshSession()
+  }, [getAuthHeaders, refreshSession])
 
   useEffect(() => {
     setAuthHeaderProvider(getAuthHeaders)
@@ -133,8 +148,18 @@ function readCsrfCookie(): string | null {
   }, [])
 
   const value = useMemo(
-    () => ({ user, accessToken, loading, login, register, logout, refreshSession, getAuthHeaders }),
-    [user, accessToken, loading, login, register, logout, refreshSession, getAuthHeaders],
+    () => ({
+      user,
+      accessToken,
+      loading,
+      login,
+      register,
+      logout,
+      refreshSession,
+      refreshUser,
+      getAuthHeaders,
+    }),
+    [user, accessToken, loading, login, register, logout, refreshSession, refreshUser, getAuthHeaders],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

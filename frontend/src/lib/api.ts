@@ -120,6 +120,86 @@ export type ChatRunPayload = {
   updatedAt?: number
 }
 
+export type UsageSeriesPoint = {
+  bucket: string
+  tokens: number
+}
+
+export type UsageStats = {
+  today: number
+  total: number
+  range: string
+  range_total: number
+  series: UsageSeriesPoint[]
+}
+
+export type UsageEntry = {
+  id: string
+  tokens_used: number
+  endpoint: string
+  metadata: {
+    type?: string
+    action?: string
+    keyword?: string
+  }
+  label: string
+  created_at: string
+}
+
+export type UsageEntries = {
+  range: string
+  entries: UsageEntry[]
+}
+
+export type Payment = {
+  id: string
+  user_id: string
+  amount: number
+  tokens: number
+  status: string
+  created_at?: string | null
+  token_balance?: number | null
+}
+
+export type PaymentCreateBody = {
+  tokens?: number
+  amount?: number
+}
+
+export type UserBalance = {
+  balance: number
+  total_grants: number
+  total_usage: number
+}
+
+export type Subscription = {
+  id: string
+  user_id: string
+  plan: string
+  status: string
+  current_period_end?: string | null
+  created_at?: string | null
+}
+
+export type NotificationItem = {
+  id: string
+  title: string
+  content: string
+  notification_type?: string | null
+  created_at?: string | null
+  read: boolean
+}
+
+export type NotificationList = {
+  notifications: NotificationItem[]
+  unread_count: number
+}
+
+export type MarkReadResult = {
+  ok: boolean
+  unread_count: number
+}
+
 let authHeaderProvider: (() => Record<string, string>) | null = null
 
 export function setAuthHeaderProvider(fn: () => Record<string, string>) {
@@ -200,4 +280,25 @@ export const api = {
     fetchJson(`/api/v1/public/auth/api-keys/${id}`, { method: 'DELETE' }),
   chatActiveRuns: () => fetchJson<{ runs: ChatRunPayload[] }>('/api/v1/chat/runs/active'),
   chatRun: (sessionKey: string) => fetchJson<ChatRunPayload>(`/api/v1/chat/runs/${sessionKey}`),
+  getUserBalance: () => fetchJson<UserBalance>('/api/v1/public/users/balance'),
+  getSubscription: () => fetchJson<Subscription>('/api/v1/public/subscriptions'),
+  upgradeSubscription: () =>
+    fetchJson<Subscription>('/api/v1/public/subscriptions/upgrade', { method: 'POST' }),
+  usageStats: (range: string) =>
+    fetchJson<UsageStats>(`/api/v1/public/usage/stats?range=${encodeURIComponent(range)}`),
+  usageEntries: (range: string) =>
+    fetchJson<UsageEntries>(`/api/v1/public/usage/entries?range=${encodeURIComponent(range)}`),
+  createPayment: (body?: PaymentCreateBody) =>
+    fetchJson<Payment>('/api/v1/public/payments', {
+      method: 'POST',
+      body: JSON.stringify(body ?? {}),
+    }),
+  getPayment: (id: string) => fetchJson<Payment>(`/api/v1/public/payments/${id}`),
+  confirmPayment: (id: string) =>
+    fetchJson<Payment>(`/api/v1/public/payments/${id}/confirm`, { method: 'POST' }),
+  listNotifications: () => fetchJson<NotificationList>('/api/v1/public/notifications'),
+  markNotificationRead: (id: string) =>
+    fetchJson<MarkReadResult>(`/api/v1/public/notifications/${id}/read`, { method: 'POST' }),
+  markAllNotificationsRead: () =>
+    fetchJson<MarkReadResult>('/api/v1/public/notifications/read-all', { method: 'POST' }),
 }

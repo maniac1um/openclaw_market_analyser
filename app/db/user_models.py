@@ -12,6 +12,7 @@ class User:
     created_at: datetime
     updated_at: datetime
     last_login_at: datetime | None = None
+    token_balance: int = 0
 
 
 @dataclass

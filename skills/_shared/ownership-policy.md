@@ -164,4 +164,4 @@ curl -sS "$BASE_URL/api/v1/public/reports/r-222" -H "X-Api-Key: $API_KEY"
 
 - [`multi-user-auth.md`](multi-user-auth.md)
 - [`report-schema.md`](report-schema.md)
-- `docs/archive/multi-user/migration-plan-2026-06-05.md`
+- [`multi-user-auth.md`](multi-user-auth.md) — 多用户鉴权与隔离

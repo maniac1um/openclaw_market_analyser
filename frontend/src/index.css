@@ -344,8 +344,7 @@ body {
     background: var(--skeleton-fallback);
   }
 
-  .ds-drawer-panel,
-  .ds-drawer-backdrop {
+  .ds-drawer-panel {
     transition: none !important;
   }
 }

@@ -61,7 +61,7 @@ export function DrawerExample() {
         打开 Drawer
       </button>
       <Drawer open={open} onClose={() => setOpen(false)} title="报告详情">
-        <p className="text-sm text-[var(--ds-text-secondary)]">Drawer 从右侧滑入，宽度 480px，遮罩带 blur。</p>
+        <p className="text-sm text-[var(--ds-text-secondary)]">Drawer 从右侧滑入，宽度 480px，不阻塞页面交互。</p>
       </Drawer>
     </>
   )

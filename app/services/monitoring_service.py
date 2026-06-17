@@ -455,7 +455,7 @@ class MonitoringService:
                 else:
                     failed += 1
             conn.commit()
-        return {
+        result = {
             "monitor_id": monitor_id,
             "total_urls": total,
             "success_count": success,
@@ -463,6 +463,39 @@ class MonitoringService:
             "server_scrape_skipped": False,
             "detail": None,
         }
+        if failed > 0:
+            self._notify_monitor_run_errors(
+                monitor_id,
+                failed_count=failed,
+                message=f"{failed} 个监测 URL 采集失败",
+            )
+        return result
+
+    def _notify_monitor_run_errors(
+        self,
+        monitor_id: str,
+        *,
+        failed_count: int,
+        message: str,
+    ) -> None:
+        if failed_count <= 0:
+            return
+        from app.services.notification_service import emit_monitor_error
+
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT user_id, keyword FROM price_monitors WHERE monitor_id = %s::uuid LIMIT 1",
+                (monitor_id,),
+            )
+            row = cur.fetchone()
+        if not row or not row[0]:
+            return
+        emit_monitor_error(
+            str(row[0]),
+            monitor_id=monitor_id,
+            keyword=str(row[1] or ""),
+            message=message,
+        )
 
     def ingest_openclaw_observation(
         self,

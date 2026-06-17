@@ -1,16 +1,39 @@
-# 文档根目录
+# 文档
 
-| 分区 | 受众 | 入口 |
-|------|------|------|
-| [project-brain/](project-brain/README.md) | 新工程师 onboarding | 30 分钟项目地图 |
-| [human/](human/README.md) | 人类工程师 | 部署、开发、API、运维 |
-| [openclaw/](openclaw/README.md) | OpenClaw Gateway 运行时 | 指向 `skills/` |
-| [reports/](reports/README.md) | 审计溯源 | 安全报告快照 |
-| [archive/](archive/README.md) | 历史参考 | 已实施/已完成方案 |
+> 人类文档入口 → [00-overview/README.md](00-overview/README.md) · Cursor Agent → [_agent/documentation-rules.md](_agent/documentation-rules.md)
 
-**全项目索引**：[PROJECT_DOCUMENT_INDEX.md](PROJECT_DOCUMENT_INDEX.md) · Cursor 规则：[AGENT_DOCUMENTATION_RULES.md](AGENT_DOCUMENTATION_RULES.md)
+## 做什么
 
-**兼容重定向**（旧书签）：
+本目录是 OpenClaw News Publisher 的**人类可读**工程文档。OpenClaw 运行时 Skill 在仓库根 `skills/`。
 
-- [api/openclaw-intake.md](api/openclaw-intake.md) → `human/api/openclaw-intake.md`
-- [security/GATEWAY_ISOLATION.md](security/GATEWAY_ISOLATION.md) → `human/security/gateway-isolation.md`
+## 关键组件
+
+| 目录 | 内容 |
+|------|------|
+| `00-overview/` | 5 分钟懂项目 |
+| `01-getting-started/` | 部署 |
+| `02-backend/` | API、设计、安全 |
+| `03-frontend/` | UI、Android |
+| `04-product/` | 对话、计费 |
+| `05-dev/` | 开发、测试 |
+| `_agent/` | Cursor / OpenClaw Agent 规则 |
+
+## 数据流（5 分钟 onboarding）
+
+```
+project-map.md → architecture.md → local-dev.md → developer-guide.md
+```
+
+| 角色 | 路径 |
+|------|------|
+| 新开发者 | [00-overview/project-map.md](00-overview/project-map.md) |
+| 运维 | [01-getting-started/getting-started.md](01-getting-started/getting-started.md) |
+| 后端 | [02-backend/api.md](02-backend/api.md) |
+
+## 示例
+
+```bash
+# 本地跑起来
+uvicorn app.main:app --reload --port 8000   # 终端 1
+cd frontend && npm run dev                   # 终端 2 → :5173
+```

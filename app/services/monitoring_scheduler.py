@@ -2,6 +2,7 @@ import logging
 from threading import Event, Thread
 
 from app.services.monitoring_service import MonitoringService
+from app.services.notification_service import emit_monitor_error
 from app.utils.log_safety import sanitize_for_log
 
 
@@ -66,3 +67,19 @@ class MonitoringScheduler:
                 self._monitor_id,
                 sanitize_for_log(str(exc)),
             )
+            try:
+                with self._service._connect() as conn, conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT user_id, keyword FROM price_monitors WHERE monitor_id = %s::uuid LIMIT 1",
+                        (self._monitor_id,),
+                    )
+                    row = cur.fetchone()
+                if row and row[0]:
+                    emit_monitor_error(
+                        str(row[0]),
+                        monitor_id=self._monitor_id,
+                        keyword=str(row[1] or ""),
+                        message=sanitize_for_log(str(exc)),
+                    )
+            except Exception:  # noqa: BLE001
+                pass

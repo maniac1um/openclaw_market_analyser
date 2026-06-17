@@ -1,35 +1,20 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { History, LogOut, Menu, Search, Settings, Sparkles, User } from 'lucide-react'
+import { History, Menu, Search, User } from 'lucide-react'
 import { useAuth } from '../../lib/AuthContext'
-import { useOnboarding } from '../../features/onboarding/OnboardingProvider'
 import { CommandBar, CommandBarInput } from '../ui/ds'
-import { ThemeToggle } from '../ui/ThemeToggle'
 
 type AppTopBarProps = {
   onOpenNav?: () => void
   onOpenInfo?: () => void
+  onOpenUser?: () => void
   showInfoButton?: boolean
 }
 
-export function AppTopBar({ onOpenNav, onOpenInfo, showInfoButton }: AppTopBarProps) {
+export function AppTopBar({ onOpenNav, onOpenInfo, onOpenUser, showInfoButton }: AppTopBarProps) {
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
-  const { openGuide } = useOnboarding()
+  const { user } = useAuth()
   const [query, setQuery] = useState('')
-  const [menuOpen, setMenuOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!menuOpen) return
-    const onPointerDown = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onPointerDown)
-    return () => document.removeEventListener('mousedown', onPointerDown)
-  }, [menuOpen])
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault()
@@ -75,67 +60,17 @@ export function AppTopBar({ onOpenNav, onOpenInfo, showInfoButton }: AppTopBarPr
         </button>
       ) : null}
 
-      <ThemeToggle />
-
       {user ? (
-        <div ref={menuRef} className="relative shrink-0">
-          <button
-            type="button"
-            onClick={() => setMenuOpen((v) => !v)}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-panel)] text-xs font-medium text-primary transition-colors hover:bg-[var(--row-hover)]"
-            aria-label="用户菜单"
-            aria-expanded={menuOpen}
-          >
-            {initials}
-          </button>
-
-          {menuOpen ? (
-            <div className="absolute top-full right-0 z-50 mt-2 min-w-[11rem] rounded-xl border border-[var(--border)] bg-background py-1">
-              <div className="border-b border-[var(--border)] px-3 py-2">
-                <p className="truncate text-sm font-medium text-primary">{user.username}</p>
-                <p className="truncate text-xs text-[var(--text-secondary)]">{user.email}</p>
-              </div>
-              {!user.is_demo ? (
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--row-hover)] hover:text-primary"
-                  onClick={() => {
-                    setMenuOpen(false)
-                    openGuide()
-                  }}
-                >
-                  <Sparkles className="h-4 w-4" />
-                  新手引导
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--row-hover)] hover:text-primary"
-                onClick={() => {
-                  setMenuOpen(false)
-                  navigate('/app/account')
-                }}
-              >
-                <Settings className="h-4 w-4" />
-                账户
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--row-hover)] hover:text-primary"
-                onClick={async () => {
-                  setMenuOpen(false)
-                  await logout()
-                  navigate('/login')
-                }}
-              >
-                <LogOut className="h-4 w-4" />
-                退出登录
-              </button>
-            </div>
-          ) : null}
-        </div>
+        <button
+          type="button"
+          onClick={onOpenUser}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-panel)] text-xs font-medium text-primary transition-colors hover:bg-[var(--row-hover)]"
+          aria-label="打开账户"
+        >
+          {initials}
+        </button>
       ) : (
-        <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text-secondary)]">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text-secondary)]">
           <User className="h-4 w-4" />
         </span>
       )}

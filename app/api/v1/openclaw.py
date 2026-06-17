@@ -91,6 +91,7 @@ async def create_report_ingest(
         request_id=x_request_id,
         background_tasks=background_tasks,
         user_id=user.id,
+        portal_role=user.role,
     )
     return IngestAccepted(ingest_id=ingest_id, status=ingest_status)
 

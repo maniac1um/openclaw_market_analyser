@@ -78,6 +78,11 @@ def _row_to_user(row: tuple) -> User:
     )
 
 
+_USER_SELECT = """
+    id, email, username, role, status, created_at, updated_at, last_login_at
+"""
+
+
 def ensure_user_tables() -> None:
     if not settings.database_url:
         return
@@ -124,6 +129,9 @@ def ensure_user_tables() -> None:
         cur.execute(sql)
         cur.execute("ALTER TABLE reports ADD COLUMN IF NOT EXISTS user_id UUID")
         conn.commit()
+    from app.db.token_queries import ensure_token_tables
+
+    ensure_token_tables()
 
 
 def ensure_bootstrap_admin() -> str | None:
@@ -220,6 +228,15 @@ def run_multi_user_migrations() -> None:
         backfill_monitor_user_ids(admin_id)
         backfill_news_user_ids(admin_id)
     from app.db.demo_seed import ensure_demo_user, maybe_reset_demo_data
+    from app.db.payment_queries import ensure_payment_tables
+    from app.db.notification_queries import ensure_notification_tables
+    from app.db.chat_queries import ensure_chat_tables
+    from app.db.subscription_queries import ensure_subscription_tables
+
+    ensure_payment_tables()
+    ensure_notification_tables()
+    ensure_chat_tables()
+    ensure_subscription_tables()
 
     if settings.demo_seed_enabled:
         ensure_demo_user()
@@ -233,8 +250,8 @@ def normalize_email(email: str) -> str:
 def get_user_by_id(user_id: str) -> User | None:
     with _connect() as conn, conn.cursor() as cur:
         cur.execute(
-            """
-            SELECT id, email, username, role, status, created_at, updated_at, last_login_at
+            f"""
+            SELECT {_USER_SELECT.strip()}
             FROM users WHERE id = %s::uuid
             """,
             (user_id,),
@@ -246,8 +263,8 @@ def get_user_by_id(user_id: str) -> User | None:
 def get_user_by_email(email: str) -> User | None:
     with _connect() as conn, conn.cursor() as cur:
         cur.execute(
-            """
-            SELECT id, email, username, role, status, created_at, updated_at, last_login_at
+            f"""
+            SELECT {_USER_SELECT.strip()}
             FROM users WHERE email = %s
             """,
             (normalize_email(email),),
@@ -259,8 +276,8 @@ def get_user_by_email(email: str) -> User | None:
 def get_user_by_username(username: str) -> User | None:
     with _connect() as conn, conn.cursor() as cur:
         cur.execute(
-            """
-            SELECT id, email, username, role, status, created_at, updated_at, last_login_at
+            f"""
+            SELECT {_USER_SELECT.strip()}
             FROM users WHERE username = %s
             """,
             (username.strip(),),
@@ -301,6 +318,17 @@ def create_user(
             (user_id, normalize_email(email), username.strip(), password_hash, role),
         )
         row = cur.fetchone()
+        from app.db.subscription_queries import create_default_subscription
+        from app.db.token_grant_queries import GRANT_SOURCE_BONUS, grant_tokens
+
+        create_default_subscription(user_id, conn=conn, cur=cur)
+        grant_tokens(
+            user_id,
+            int(settings.default_token_balance),
+            GRANT_SOURCE_BONUS,
+            conn=conn,
+            cur=cur,
+        )
         conn.commit()
     return _row_to_user(row)
 

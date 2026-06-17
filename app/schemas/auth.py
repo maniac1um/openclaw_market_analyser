@@ -35,6 +35,7 @@ class UserPublic(BaseModel):
     role: str
     status: str
     is_demo: bool = False
+    token_balance: int = 0
     created_at: str | None = None
     last_login_at: str | None = None
 

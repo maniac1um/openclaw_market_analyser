@@ -1,9 +1,12 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Query, Request
 
 from app.core.config import settings
 from app.core.security import AdminUser, CurrentUser, QueryCtx, verify_portal_write_auth, verify_user_api_key
 from app.db import audit_queries as audit_q
+from app.db import notification_queries as notif_q
+from app.db import payment_queries as pay_q
 from app.db import public_queries as pq
+from app.db import token_queries as tq
 from app.db.user_models import User
 from app.schemas.monitoring import MonitoringBootstrapRequest
 from app.schemas.portal import (
@@ -16,12 +19,147 @@ from app.schemas.portal import (
     WorkflowBootstrapRequest,
     WorkflowTriggerRequest,
 )
+from app.schemas.billing import PaymentCreateRequest, PaymentResponse
+from app.schemas.notification import (
+    MarkReadResponse,
+    NotificationCreateRequest,
+    NotificationCreatedResponse,
+    NotificationListResponse,
+)
+from app.schemas.usage import UsageEntriesResponse, UsageStatsResponse
 from app.db.query_context import QueryContext
 from app.services.monitoring_service import MonitoringService
 from app.services.news_analysis_service import run_news_trigger_analysis
+from app.services.token_service import ROUTE_AGENT, ROUTE_WORKFLOW, enrich_usage_entries
+from app.services.notification_service import emit_monitor_error
 from app.utils.path_safety import parse_uuid
 
 router = APIRouter(tags=["public"])
+
+
+@router.get("/public/usage/stats", response_model=UsageStatsResponse, summary="Token 使用统计")
+def usage_stats(
+    user: CurrentUser,
+    range: str = Query(default="7d", description="Time range: 1h, 6h, 24h, 7d, 30d, all"),
+) -> UsageStatsResponse:
+    if not settings.database_url:
+        raise HTTPException(status_code=503, detail="User database is not configured")
+    return UsageStatsResponse(**tq.get_usage_stats(str(user.id), range_key=range))
+
+
+@router.get("/public/usage/entries", response_model=UsageEntriesResponse, summary="Token 使用明细")
+def usage_entries(
+    user: CurrentUser,
+    range: str = Query(default="7d", description="Time range: 1h, 6h, 24h, 7d, 30d, all"),
+    limit: int = Query(default=100, ge=1, le=500),
+) -> UsageEntriesResponse:
+    if not settings.database_url:
+        raise HTTPException(status_code=503, detail="User database is not configured")
+    rows = enrich_usage_entries(tq.list_usage_entries(str(user.id), range_key=range, limit=limit))
+    return UsageEntriesResponse(range=range, entries=rows)
+
+
+@router.post("/public/payments", response_model=PaymentResponse, summary="创建充值订单")
+def create_payment_order(
+    user: CurrentUser,
+    body: PaymentCreateRequest = Body(default_factory=PaymentCreateRequest),
+) -> PaymentResponse:
+    from app.db.demo_guard import reject_demo_write
+
+    if not settings.database_url:
+        raise HTTPException(status_code=503, detail="User database is not configured")
+    reject_demo_write(user)
+    payment = pay_q.create_payment(
+        str(user.id),
+        tokens=body.tokens,
+        amount=body.amount,
+    )
+    return PaymentResponse(**payment)
+
+
+@router.get("/public/payments/{payment_id}", response_model=PaymentResponse, summary="查询订单状态")
+def get_payment_order(user: CurrentUser, payment_id: str) -> PaymentResponse:
+    if not settings.database_url:
+        raise HTTPException(status_code=503, detail="User database is not configured")
+    payment_uuid = parse_uuid(payment_id, "payment_id")
+    payment = pay_q.get_payment(payment_uuid, str(user.id))
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    return PaymentResponse(**payment)
+
+
+@router.post(
+    "/public/payments/{payment_id}/confirm",
+    response_model=PaymentResponse,
+    summary="模拟支付确认",
+)
+def confirm_payment_order(user: CurrentUser, payment_id: str) -> PaymentResponse:
+    from app.db.demo_guard import reject_demo_write
+
+    if not settings.database_url:
+        raise HTTPException(status_code=503, detail="User database is not configured")
+    reject_demo_write(user)
+    payment_uuid = parse_uuid(payment_id, "payment_id")
+    try:
+        payment = pay_q.confirm_payment(payment_uuid, str(user.id))
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return PaymentResponse(**payment)
+
+
+@router.get("/public/notifications", response_model=NotificationListResponse, summary="通知列表")
+def list_notifications(user: CurrentUser) -> NotificationListResponse:
+    if not settings.database_url:
+        raise HTTPException(status_code=503, detail="User database is not configured")
+    return NotificationListResponse(**notif_q.list_notifications_for_user(str(user.id)))
+
+
+@router.post(
+    "/public/notifications/{notification_id}/read",
+    response_model=MarkReadResponse,
+    summary="标记通知已读",
+)
+def mark_notification_read(notification_id: str, user: CurrentUser) -> MarkReadResponse:
+    if not settings.database_url:
+        raise HTTPException(status_code=503, detail="User database is not configured")
+    if not parse_uuid(notification_id):
+        raise HTTPException(status_code=422, detail="invalid notification_id")
+    ok = notif_q.mark_notification_read(str(user.id), notification_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    payload = notif_q.list_notifications_for_user(str(user.id))
+    return MarkReadResponse(ok=True, unread_count=int(payload["unread_count"]))
+
+
+@router.post("/public/notifications/read-all", response_model=MarkReadResponse, summary="全部标记已读")
+def mark_all_notifications_read(user: CurrentUser) -> MarkReadResponse:
+    if not settings.database_url:
+        raise HTTPException(status_code=503, detail="User database is not configured")
+    notif_q.mark_all_notifications_read(str(user.id))
+    payload = notif_q.list_notifications_for_user(str(user.id))
+    return MarkReadResponse(ok=True, unread_count=int(payload["unread_count"]))
+
+
+@router.post(
+    "/public/notifications",
+    response_model=NotificationCreatedResponse,
+    summary="发送通知（ADMIN）",
+)
+def create_notification(payload: NotificationCreateRequest, _: AdminUser) -> NotificationCreatedResponse:
+    if not settings.database_url:
+        raise HTTPException(status_code=503, detail="User database is not configured")
+    try:
+        created = notif_q.create_notification(
+            title=payload.title,
+            content=payload.content,
+            target=payload.target,
+            notification_type=payload.notification_type,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return NotificationCreatedResponse(**created)
 
 
 @router.get("/public/reports", summary="用户侧报告列表")
@@ -295,6 +433,7 @@ def public_workflow_analysis_run(
         background_tasks=background_tasks,
         user_id=user.id,
         ctx=ctx,
+        billing_route=ROUTE_WORKFLOW,
     )
 
 
@@ -325,6 +464,13 @@ def report_external_scheduler_heartbeat(
         "last_seen_at": now,
         "user_id": user.id,
     }
+    status_norm = (payload.status or "").strip().lower()
+    if status_norm and status_norm not in {"ok", "success"}:
+        emit_monitor_error(
+            user.id,
+            monitor_id=payload.monitor_id or payload.job_name,
+            message=payload.message or f"外部任务 {payload.job_name} 状态异常：{payload.status}",
+        )
     return {"ok": True, "job_name": payload.job_name, "last_seen_at": now}
 
 
@@ -347,4 +493,5 @@ def trigger_news_price_analysis(
         background_tasks=background_tasks,
         user_id=user.id,
         ctx=QueryContext(user_id=user.id, role=user.role),
+        billing_route=ROUTE_AGENT,
     )

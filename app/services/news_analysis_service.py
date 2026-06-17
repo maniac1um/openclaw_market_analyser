@@ -8,6 +8,17 @@ from app.db.public_queries import list_news_library_from_db, monitor_accessible,
 from app.db.query_context import QueryContext
 from app.schemas.report import OpenClawReportIn
 from app.services.monitoring_service import MonitoringService
+from app.services.notification_service import emit_workflow_done
+from app.services.token_service import (
+    BILLING_REPORT_ONLY,
+    ROUTE_AGENT,
+    ROUTE_WORKFLOW,
+    consume_tokens_http,
+    fixed_cost_for_source,
+    metadata_for_billing_source,
+    require_tokens_http,
+    resolve_analysis_billing_source,
+)
 from app.utils.formatting import parse_iso_dt
 from app.utils.sentiment import sentiment_from_text
 
@@ -174,11 +185,22 @@ def run_news_trigger_analysis(
     background_tasks: BackgroundTasks,
     user_id: str | None = None,
     ctx: QueryContext | None = None,
+    billing_route: str = ROUTE_WORKFLOW,
 ) -> dict:
     if ctx is None:
         if not user_id:
             raise HTTPException(status_code=401, detail="Authentication context required")
         ctx = QueryContext(user_id=user_id, role="USER")
+    if billing_route not in {ROUTE_WORKFLOW, ROUTE_AGENT}:
+        raise ValueError(f"invalid billing_route: {billing_route}")
+    billing_source = resolve_analysis_billing_source(route=billing_route, publish=publish)
+    if user_id:
+        require_tokens_http(
+            user_id=str(user_id),
+            amount=fixed_cost_for_source(billing_source),
+            source=billing_source,
+            portal_role=ctx.role,
+        )
     result = build_news_price_analysis(
         monitor_id=monitor_id,
         keyword=keyword,
@@ -188,6 +210,14 @@ def run_news_trigger_analysis(
         horizon=horizon,
         ctx=ctx,
     )
+    if user_id:
+        consume_tokens_http(
+            user_id=str(user_id),
+            amount=fixed_cost_for_source(billing_source),
+            source=billing_source,
+            portal_role=ctx.role,
+            metadata=metadata_for_billing_source(billing_source, keyword=result["keyword"]),
+        )
     ingest_id = None
     ingest_status = None
     if publish:
@@ -220,6 +250,15 @@ def run_news_trigger_analysis(
             request_id=f"news-trigger-{monitor_id}-{int(now.timestamp())}",
             background_tasks=background_tasks,
             user_id=user_id,
+            portal_role=ctx.role,
+            bill=False,
+        )
+    if user_id:
+        emit_workflow_done(
+            str(user_id),
+            keyword=result["keyword"],
+            publish=publish,
+            ingest_id=ingest_id,
         )
     return {
         "ok": True,

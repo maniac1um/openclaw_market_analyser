@@ -14,6 +14,8 @@ import { PriceTrendPage } from './pages/PriceTrendPage'
 import { WorkflowPage } from './pages/WorkflowPage'
 import { KeywordTrackingPage } from './pages/KeywordTrackingPage'
 import { AccountPage } from './pages/AccountPage'
+import { UsagePage } from './pages/UsagePage'
+import { BillingPage } from './pages/BillingPage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { LandingOrRedirect } from './pages/LandingOrRedirect'
@@ -32,6 +34,8 @@ const legacyRedirects = [
   '/workflow',
   '/keyword-tracking',
   '/account',
+  '/usage',
+  '/billing',
   '/topic-analysis',
 ] as const
 
@@ -75,6 +79,8 @@ export default function App() {
                 <Route path="/app/workflow" element={<WorkflowPage />} />
                 <Route path="/app/keyword-tracking" element={<KeywordTrackingPage />} />
                 <Route path="/app/account" element={<AccountPage />} />
+                <Route path="/app/usage" element={<UsagePage />} />
+                <Route path="/app/billing" element={<BillingPage />} />
                 <Route path="*" element={<Navigate to="/app" replace />} />
               </Route>
             </Route>

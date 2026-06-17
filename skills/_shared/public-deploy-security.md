@@ -149,4 +149,4 @@ Agent 生成分析时即遵守；`openclaw-report-security` 发布前扫描。
 - [`agent-safety-baseline.md`](agent-safety-baseline.md)
 - [`report-security.md`](report-security.md)
 - [`portal-chat-routing.md`](portal-chat-routing.md)
-- `docs/reports/security/hardening-plan-2026-06-05.md`
+- [`docs/02-backend/gateway-isolation.md`](../../docs/02-backend/gateway-isolation.md) — Gateway 隔离（P0）

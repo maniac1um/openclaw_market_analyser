@@ -214,4 +214,4 @@ generated_at, analysis, sources, items, status
 - [`report-security.md`](report-security.md) — 发布前安全校验
 - [`ownership-policy.md`](ownership-policy.md) — 归属与跨用户规则
 - [`multi-user-auth.md`](multi-user-auth.md) — 鉴权
-- `docs/human/api/openclaw-intake.md` — 入站 API 权威说明
+- [`docs/02-backend/api.md`](../../docs/02-backend/api.md) — 入站 API 权威说明

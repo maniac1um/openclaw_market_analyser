@@ -12,11 +12,14 @@ from app.api.v1.auth import router as auth_router
 from app.api.v1.chat import router as chat_router
 from app.api.v1.openclaw import router as openclaw_router
 from app.api.v1.public import router as public_router
+from app.api.v1.subscriptions import router as subscriptions_router
+from app.api.v1.users import router as users_router
 from app.core.config import settings
 from app.core.startup_checks import validate_security_config
 from app.middleware.csrf import CsrfMiddleware
 from app.middleware.security import MaxBodySizeMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware
 from app.services.monitoring_scheduler import MonitoringScheduler
+from app.services.subscription_grant_scheduler import SubscriptionGrantScheduler
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,12 +27,13 @@ logging.basicConfig(
 )
 
 _monitoring_scheduler: MonitoringScheduler | None = None
+_subscription_grant_scheduler: SubscriptionGrantScheduler | None = None
 FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _monitoring_scheduler
+    global _monitoring_scheduler, _subscription_grant_scheduler
     validate_security_config()
     if settings.database_url:
         try:
@@ -69,11 +73,33 @@ async def lifespan(app: FastAPI):
     else:
         app.state.monitoring_scheduler_started = False
 
+    if settings.subscription_grant_scheduler_enabled:
+        if not settings.database_url:
+            logging.getLogger(__name__).warning(
+                "subscription grant scheduler enabled but OPENCLAW_DATABASE_URL is not set"
+            )
+            app.state.subscription_grant_scheduler_started = False
+        else:
+            _subscription_grant_scheduler = SubscriptionGrantScheduler(
+                interval_minutes=settings.subscription_grant_scheduler_interval_minutes,
+                cron_hour_utc=settings.subscription_grant_scheduler_cron_hour_utc,
+                run_on_start=settings.subscription_grant_scheduler_run_on_start,
+            )
+            _subscription_grant_scheduler.start()
+            app.state.subscription_grant_scheduler_started = True
+    else:
+        app.state.subscription_grant_scheduler_started = False
+
     yield
+
+    if _subscription_grant_scheduler is not None:
+        _subscription_grant_scheduler.stop()
+    app.state.subscription_grant_scheduler_started = False
 
     if _monitoring_scheduler is not None:
         _monitoring_scheduler.stop()
     app.state.monitoring_scheduler_started = False
+    app.state.subscription_grant_scheduler_started = False
 
 
 def create_app() -> FastAPI:
@@ -91,6 +117,7 @@ def create_app() -> FastAPI:
         openapi_url=openapi_url,
     )
     app.state.monitoring_scheduler_started = False
+    app.state.subscription_grant_scheduler_started = False
     app.state.external_scheduler_jobs = {}
 
     app.add_middleware(SecurityHeadersMiddleware)
@@ -122,6 +149,8 @@ def create_app() -> FastAPI:
     app.include_router(auth_router, prefix=settings.api_v1_prefix)
     app.include_router(chat_router, prefix=settings.api_v1_prefix)
     app.include_router(public_router, prefix=settings.api_v1_prefix)
+    app.include_router(subscriptions_router, prefix=settings.api_v1_prefix)
+    app.include_router(users_router, prefix=settings.api_v1_prefix)
 
     @app.get("/healthz", summary="健康检查")
     def healthz() -> dict[str, str]:

@@ -1,7 +1,9 @@
 import { NavLink } from 'react-router-dom'
-import { FileText, Loader2 } from 'lucide-react'
+import { FileText, Loader2, X } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { Drawer } from '../ui/ds'
+
+export const APP_NAV_DRAWER_WIDTH = 260
 
 export const sidebarNav = [
   { to: '/app', label: '首页', end: true },
@@ -62,13 +64,21 @@ type AppNavDrawerProps = {
 
 export function AppNavDrawer({ open, onClose, chatBusy }: AppNavDrawerProps) {
   return (
-    <Drawer open={open} onClose={onClose} side="left" width={260} className="p-0">
+    <Drawer open={open} onClose={onClose} side="left" width={APP_NAV_DRAWER_WIDTH} className="p-0">
       <div className="flex h-full flex-col pt-[env(safe-area-inset-top)]">
         <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--ds-border)] px-4">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--color-accent)] text-[var(--accent-fg)]">
             <FileText className="h-4 w-4" />
           </span>
           <span className="truncate text-sm font-semibold text-[var(--ds-text-primary)]">OpenClaw</span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="关闭导航"
+            className="ml-auto rounded-md p-1 text-[var(--ds-text-secondary)] transition-colors duration-[var(--ds-duration-fast)] hover:bg-[var(--ds-row-hover)] hover:text-[var(--ds-text-primary)]"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3" aria-label="主导航">
           {sidebarNav.map((item) => (

@@ -5,6 +5,8 @@ import { Drawer } from '../../components/ui/ds'
 import { useChat } from './ChatProvider'
 import type { UserMessage } from './types'
 
+export const CHAT_SESSIONS_DRAWER_WIDTH = 300
+
 type ChatSessionsDrawerProps = {
   open: boolean
   onClose: () => void
@@ -54,7 +56,7 @@ export function ChatSessionsDrawer({ open, onClose }: ChatSessionsDrawerProps) {
   }
 
   return (
-    <Drawer open={open} onClose={onClose} side="right" width={300} title="对话">
+    <Drawer open={open} onClose={onClose} side="right" width={CHAT_SESSIONS_DRAWER_WIDTH} title="对话">
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between gap-2 rounded-lg border border-[var(--ds-border)] px-3 py-2 transition-[border-color] duration-[var(--ds-duration-fast)] hover:border-[var(--ds-border-hover)]">
           <div className="min-w-0">

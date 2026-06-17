@@ -80,7 +80,9 @@ def _record_login_failure(key: str) -> None:
 
 def user_to_public(user: User) -> dict:
     from app.db.demo_guard import is_demo_user
+    from app.db.token_queries import get_user_balance_detail
 
+    balance_detail = get_user_balance_detail(user.id)
     return {
         "id": user.id,
         "email": user.email,
@@ -88,6 +90,7 @@ def user_to_public(user: User) -> dict:
         "role": user.role,
         "status": user.status,
         "is_demo": is_demo_user(user),
+        "token_balance": balance_detail["balance"],
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "last_login_at": user.last_login_at.isoformat() if user.last_login_at else None,
     }

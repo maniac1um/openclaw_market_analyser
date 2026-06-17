@@ -186,6 +186,9 @@ def ensure_demo_user() -> str | None:
             if inserted:
                 user_id = str(inserted[0])
         conn.commit()
+    from app.db.token_queries import set_token_balance
+
+    set_token_balance(user_id, int(settings.default_token_balance))
     seed_demo_data(user_id)
     return user_id
 

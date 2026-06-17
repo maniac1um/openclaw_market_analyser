@@ -7,12 +7,12 @@
 | 用途 | 路径 |
 |------|------|
 | Gateway `extraDirs` | `/path/to/repo/skills` |
-| 文档索引 | [docs/openclaw/README.md](../docs/openclaw/README.md) |
-| Skill 职责地图 | [docs/project-brain/SKILL_MAP.md](../docs/project-brain/SKILL_MAP.md) |
-| 架构总览（归档） | [docs/archive/skills/skill-refactor-plan-2026-06-06.md](../docs/archive/skills/skill-refactor-plan-2026-06-06.md) |
-| 生产部署 | [docs/human/deployment/openclaw-skills-gateway.md](../docs/human/deployment/openclaw-skills-gateway.md) |
+| 文档索引 | [docs/_agent/openclaw-index.md](../docs/_agent/openclaw-index.md) |
+| Skill 职责地图 | [docs/_agent/skill-map.md](../docs/_agent/skill-map.md) |
+| 系统架构 | [docs/00-overview/architecture.md](../docs/00-overview/architecture.md) |
+| 生产部署 | [docs/01-getting-started/openclaw-gateway.md](../docs/01-getting-started/openclaw-gateway.md) |
 
-**说明**：`skills/` 面向 **OpenClaw 运行时**，不是 Cursor IDE 开发辅助指令。工程师在 Cursor 中开发本仓库请读 [docs/AGENT_DOCUMENTATION_RULES.md](../docs/AGENT_DOCUMENTATION_RULES.md)。
+**说明**：`skills/` 面向 **OpenClaw 运行时**，不是 Cursor IDE 开发辅助指令。工程师在 Cursor 中开发本仓库请读 [docs/_agent/documentation-rules.md](../docs/_agent/documentation-rules.md)。
 
 ---
 
@@ -40,4 +40,4 @@ Gateway 仍指向 `skills/` 根目录；下表为文档治理分区，**暂不�
 | [openclaw-price-analysis-reporting](openclaw-price-analysis-reporting/SKILL.md) | 联合分析 |
 | [openclaw-public-news-library](openclaw-public-news-library/SKILL.md) | 新闻库 |
 
-`_shared/` 策略见 [docs/openclaw/crosswalk.md](../docs/openclaw/crosswalk.md)。
+`_shared/` 策略见 [docs/_agent/crosswalk.md](../docs/_agent/crosswalk.md)。

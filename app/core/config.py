@@ -123,6 +123,74 @@ class Settings(BaseSettings):
         default=Path("content/demo/.last_reset"),
         description="UTC date marker for daily demo data reset",
     )
+    default_token_balance: int = Field(
+        default=10_000,
+        description="Initial token balance for new and backfilled users",
+    )
+    token_response_reserve: int = Field(
+        default=512,
+        description="Reserved tokens estimated for each chat response when pre-checking balance",
+    )
+    token_workflow_cost: int = Field(
+        default=500,
+        description="Fixed token cost per portal workflow analysis run",
+    )
+    token_agent_cost: int = Field(
+        default=500,
+        description="Fixed token cost per OpenClaw agent news-trigger analysis",
+    )
+    token_report_cost: int = Field(
+        default=300,
+        description="Fixed token cost per report ingest/generation",
+    )
+    simulated_recharge_amount: int = Field(
+        default=1000,
+        description="Tokens credited per simulated recharge (no real payment)",
+    )
+    subscription_monthly_tokens_free: int = Field(
+        default=5000,
+        description="Monthly subscription token grant for free plan",
+    )
+    subscription_monthly_tokens_pro: int = Field(
+        default=100_000,
+        description="Monthly subscription token grant for pro plan",
+    )
+    subscription_grant_period_days: int = Field(
+        default=30,
+        description="Days added to current_period_end after each monthly grant",
+    )
+    subscription_grant_scheduler_enabled: bool = Field(
+        default=True,
+        description="Enable cron scheduler for monthly subscription token grants",
+    )
+    subscription_grant_scheduler_interval_minutes: int = Field(
+        default=60,
+        description="How often the grant scheduler checks the cron window",
+    )
+    subscription_grant_scheduler_cron_hour_utc: int = Field(
+        default=0,
+        description="UTC hour (0-23) when daily grant batch may run",
+    )
+    subscription_grant_scheduler_run_on_start: bool = Field(
+        default=False,
+        description="Run grant batch immediately on app startup (if cron window matches)",
+    )
+    token_balance_cache_seconds: int = Field(
+        default=30,
+        description="Optional TTL for computed token balance cache (0 disables)",
+    )
+    token_rate_limit_enabled: bool = Field(
+        default=True,
+        description="Per-user token billing rate limits (requests and spend per minute)",
+    )
+    token_requests_per_minute: int = Field(
+        default=10,
+        description="Max token-billed operations per user per minute",
+    )
+    token_spend_per_minute: int = Field(
+        default=5000,
+        description="Max tokens consumed per user per minute across billed operations",
+    )
 
     model_config = SettingsConfigDict(env_prefix="OPENCLAW_", env_file=".env", extra="ignore")
 

@@ -15,6 +15,7 @@ from app.core.security import (
     resolve_websocket_user,
 )
 from app.db.query_context import ADMIN_ROLE
+from app.db import chat_queries as chat_q
 from app.services.chat_run_store import ChatRunStatus, chat_run_store
 from app.services.gateway_audit_service import log_gateway_event
 from app.services.gateway_permission_checker import (
@@ -29,6 +30,12 @@ from app.services.openclaw_chat_bridge import (
     probe_openclaw_gateway,
     resolve_gateway_connect_context,
     stream_openclaw_reply,
+)
+from app.services.token_service import (
+    InsufficientTokensError,
+    TokenRateLimitExceeded,
+    require_chat_tokens,
+    consume_chat_turn,
 )
 from app.utils.path_safety import parse_uuid
 from app.utils.public_errors import sanitize_client_error, sanitize_gateway_probe_detail
@@ -88,6 +95,27 @@ async def _safe_send_json(
             return True
         except Exception:  # noqa: BLE001
             return False
+
+
+async def _charge_chat_turn(
+    *,
+    owner_user_id: str,
+    portal_role: str,
+    user_text: str,
+    assistant_text: str,
+) -> None:
+    try:
+        consume_chat_turn(
+            user_id=owner_user_id,
+            portal_role=portal_role,
+            user_text=user_text,
+            assistant_text=assistant_text,
+        )
+    except InsufficientTokensError:
+        logger.error(
+            "token deduction failed after chat turn user_id=%s (concurrent usage?)",
+            owner_user_id,
+        )
 
 
 async def _execute_chat_turn(
@@ -196,6 +224,12 @@ async def _execute_chat_turn(
             gateway_device_role=meta.get("gateway_device_role"),
             latency_ms=latency_ms,
         )
+        await _charge_chat_turn(
+            owner_user_id=owner_user_id,
+            portal_role=portal_role,
+            user_text=user_text,
+            assistant_text=current.text or "",
+        )
     except ChatCancelledError as exc:
         current = await chat_run_store.get_run(
             owner_user_id=owner_user_id,
@@ -231,6 +265,12 @@ async def _execute_chat_turn(
             gateway_device_role=connect_ctx.portal_role,
             latency_ms=int((time.monotonic() - turn_started) * 1000),
         )
+        await _charge_chat_turn(
+            owner_user_id=owner_user_id,
+            portal_role=portal_role,
+            user_text=user_text,
+            assistant_text=final_text,
+        )
     except OpenClawChatTimeoutError as exc:
         current = await chat_run_store.get_run(
             owner_user_id=owner_user_id,
@@ -265,6 +305,12 @@ async def _execute_chat_turn(
             agent_id=connect_ctx.agent_id,
             error_redacted="timeout",
             latency_ms=int((time.monotonic() - turn_started) * 1000),
+        )
+        await _charge_chat_turn(
+            owner_user_id=owner_user_id,
+            portal_role=portal_role,
+            user_text=user_text,
+            assistant_text=final_text,
         )
     except Exception as exc:
         current = await chat_run_store.get_run(
@@ -313,7 +359,10 @@ async def get_chat_run(session_key: str, user: CurrentUser) -> dict[str, Any]:
     record = await chat_run_store.get_run(owner_user_id=str(user.id), session_key=session_key)
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat run not found")
-    return _run_to_payload(record)
+    payload = _run_to_payload(record)
+    if record.run_id:
+        payload["messages"] = chat_q.list_messages_for_run(record.run_id)
+    return payload
 
 
 @router.websocket("/ws")
@@ -441,6 +490,31 @@ async def chat_ws(websocket: WebSocket) -> None:
                 )
                 continue
 
+            try:
+                require_chat_tokens(
+                    user_id=owner_user_id,
+                    portal_role=portal_role,
+                    user_text=user_text.strip(),
+                )
+            except TokenRateLimitExceeded:
+                await publish(
+                    {
+                        "type": "assistant_error",
+                        "sessionKey": session_key,
+                        "error": "rate limit exceeded",
+                    },
+                )
+                continue
+            except InsufficientTokensError:
+                await publish(
+                    {
+                        "type": "assistant_error",
+                        "sessionKey": session_key,
+                        "error": "Insufficient tokens",
+                    },
+                )
+                continue
+
             if await chat_run_store.is_user_busy(owner_user_id):
                 await publish(
                     {
@@ -455,6 +529,7 @@ async def chat_ws(websocket: WebSocket) -> None:
                 record = await chat_run_store.begin_run(
                     owner_user_id=owner_user_id,
                     session_key=session_key,
+                    user_text=user_text.strip(),
                 )
             except RuntimeError:
                 await publish(

@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react'
 import { cn } from '../../lib/utils'
 import { useAuth } from '../../lib/AuthContext'
 import { useChat } from '../../features/chat/ChatProvider'
-import { ChatSessionsDrawer } from '../../features/chat/ChatSessionsDrawer'
-import { AppNavDrawer } from './AppNavDrawer'
+import { ChatSessionsDrawer, CHAT_SESSIONS_DRAWER_WIDTH } from '../../features/chat/ChatSessionsDrawer'
+import { AppNavDrawer, APP_NAV_DRAWER_WIDTH } from './AppNavDrawer'
 import { AppTopBar } from './AppTopBar'
+import { UserDrawer, USER_DRAWER_WIDTH } from './UserDrawer'
 
 export function AppShell() {
   const location = useLocation()
@@ -15,17 +16,33 @@ export function AppShell() {
   const chatBusy = pendingSessionKeys.length > 0
   const [navOpen, setNavOpen] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false)
+  const [userOpen, setUserOpen] = useState(false)
 
   useEffect(() => {
     setNavOpen(false)
     setInfoOpen(false)
+    setUserOpen(false)
   }, [location.pathname])
 
+  const marginLeft = navOpen ? APP_NAV_DRAWER_WIDTH : 0
+  const marginRight =
+    isChatHome && infoOpen ? CHAT_SESSIONS_DRAWER_WIDTH : userOpen ? USER_DRAWER_WIDTH : 0
+
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-background text-primary">
+    <div
+      className="flex h-[100dvh] flex-col overflow-hidden bg-background text-primary transition-[margin] duration-[var(--ds-duration-drawer)] ease-[var(--ds-ease-out)]"
+      style={{ marginLeft, marginRight }}
+    >
       <AppTopBar
         onOpenNav={() => setNavOpen(true)}
-        onOpenInfo={() => setInfoOpen(true)}
+        onOpenInfo={() => {
+          setUserOpen(false)
+          setInfoOpen(true)
+        }}
+        onOpenUser={() => {
+          setInfoOpen(false)
+          setUserOpen(true)
+        }}
         showInfoButton={isChatHome}
       />
 
@@ -51,6 +68,7 @@ export function AppShell() {
       {isChatHome ? (
         <ChatSessionsDrawer open={infoOpen} onClose={() => setInfoOpen(false)} />
       ) : null}
+      <UserDrawer open={userOpen} onClose={() => setUserOpen(false)} />
     </div>
   )
 }

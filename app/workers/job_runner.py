@@ -2,6 +2,7 @@ import logging
 from typing import Any
 
 from app.schemas.report import OpenClawReportIn
+from app.services.notification_service import emit_report_ready
 from app.services.publish_service import PublishService
 from app.services.report_service import ReportService
 from app.utils.log_safety import sanitize_for_log
@@ -34,6 +35,14 @@ class JobRunner:
                 rendered_payload=rendered_payload,
             )
             logger.info("ingest_id=%s stage=published", ingest_id)
+            record = self.repo.get_by_ingest_id(ingest_id)
+            if record and record.user_id:
+                emit_report_ready(
+                    str(record.user_id),
+                    keyword=report.keyword,
+                    ingest_id=ingest_id,
+                    title=report.generated_title,
+                )
         except Exception as exc:  # pragma: no cover
             self.repo.update_status(ingest_id, status="failed", error=sanitize_for_log(str(exc)))
             logger.error("ingest_id=%s stage=failed error=%s", ingest_id, sanitize_for_log(str(exc)))

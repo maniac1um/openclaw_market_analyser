@@ -5,6 +5,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Literal
 
+from app.db import chat_queries as cq
+
 ChatRunStatus = Literal[
     "processing",
     "streaming",
@@ -14,9 +16,6 @@ ChatRunStatus = Literal[
     "timeout",
 ]
 
-_RUN_TTL_SECONDS = 3600.0
-# Reclaim orphaned in-memory runs (e.g. after cancel races or lost WS tasks).
-_STALE_PROCESSING_SECONDS = 660.0
 _STREAMING_STATUSES = frozenset({"processing", "streaming"})
 
 
@@ -31,64 +30,65 @@ class ChatRunRecord:
     updated_at: float = field(default_factory=time.time)
     cancel_event: asyncio.Event = field(default_factory=asyncio.Event)
     generation: int = 1
+    run_id: str | None = None
+
+
+def _record_from_row(row: dict, cancel_event: asyncio.Event) -> ChatRunRecord:
+    return ChatRunRecord(
+        session_key=str(row["session_key"]),
+        owner_user_id=str(row["user_id"]),
+        status=row["status"],
+        text=str(row.get("text") or ""),
+        error=row.get("error"),
+        done=bool(row.get("done")),
+        updated_at=float(row.get("updated_at") or time.time()),
+        cancel_event=cancel_event,
+        generation=int(row.get("generation") or 1),
+        run_id=str(row.get("run_id") or "") or None,
+    )
 
 
 class ChatRunStore:
-    """In-memory chat turn state for portal background runs and poll recovery."""
+    """PostgreSQL-backed chat turn state; cancel signals remain in-process only."""
 
     def __init__(self) -> None:
         self._lock = asyncio.Lock()
-        self._runs: dict[tuple[str, str], ChatRunRecord] = {}
-        self._active_by_user: dict[str, str] = {}
+        self._cancel_events: dict[tuple[str, str], asyncio.Event] = {}
 
-    async def _prune_locked(self) -> None:
-        cutoff = time.time() - _RUN_TTL_SECONDS
-        stale: list[tuple[str, str]] = []
-        for key, record in self._runs.items():
-            if record.done and record.updated_at < cutoff:
-                stale.append(key)
-        for key in stale:
-            record = self._runs.pop(key, None)
-            if record and self._active_by_user.get(record.owner_user_id) == record.session_key:
-                self._active_by_user.pop(record.owner_user_id, None)
+    def _event_key(self, owner_user_id: str, session_key: str) -> tuple[str, str]:
+        return owner_user_id, session_key
 
-    async def _reclaim_stale_locked(self, record: ChatRunRecord) -> None:
-        if record.done or record.status not in _STREAMING_STATUSES:
-            return
-        if (time.time() - record.updated_at) < _STALE_PROCESSING_SECONDS:
-            return
-        record.cancel_event.set()
-        record.text = (record.text or "").rstrip()
-        record.done = True
-        record.status = "timeout"
-        record.error = "stale run reclaimed"
-        record.updated_at = time.time()
-        if self._active_by_user.get(record.owner_user_id) == record.session_key:
-            self._active_by_user.pop(record.owner_user_id, None)
+    def _cancel_previous_locked(self, owner_user_id: str, session_key: str) -> asyncio.Event:
+        key = self._event_key(owner_user_id, session_key)
+        existing = self._cancel_events.get(key)
+        if existing is not None:
+            existing.set()
+        event = asyncio.Event()
+        self._cancel_events[key] = event
+        return event
 
-    async def begin_run(self, *, owner_user_id: str, session_key: str) -> ChatRunRecord:
+    def _release_cancel_locked(self, owner_user_id: str, session_key: str) -> None:
+        key = self._event_key(owner_user_id, session_key)
+        self._cancel_events.pop(key, None)
+
+    async def begin_run(
+        self,
+        *,
+        owner_user_id: str,
+        session_key: str,
+        user_text: str | None = None,
+    ) -> ChatRunRecord:
         async with self._lock:
-            await self._prune_locked()
-            existing = self._runs.get((owner_user_id, session_key))
-            if existing is not None and not existing.done:
-                existing.cancel_event.set()
-            if self._active_by_user.get(owner_user_id) not in (None, session_key):
-                other_key = self._active_by_user[owner_user_id]
-                other = self._runs.get((owner_user_id, other_key))
-                if other is not None:
-                    await self._reclaim_stale_locked(other)
-                if other is not None and not other.done:
-                    raise RuntimeError("Another chat turn is already running for this user.")
-            next_generation = (existing.generation + 1) if existing is not None else 1
-            record = ChatRunRecord(
+            if await asyncio.to_thread(cq.has_active_run, owner_user_id, except_session_key=session_key):
+                raise RuntimeError("Another chat turn is already running for this user.")
+            cancel_event = self._cancel_previous_locked(owner_user_id, session_key)
+            row = await asyncio.to_thread(
+                cq.begin_run,
+                user_id=owner_user_id,
                 session_key=session_key,
-                owner_user_id=owner_user_id,
-                status="processing",
-                generation=next_generation,
+                user_text=user_text,
             )
-            self._runs[(owner_user_id, session_key)] = record
-            self._active_by_user[owner_user_id] = session_key
-            return record
+            return _record_from_row(row, cancel_event)
 
     async def update_run(
         self,
@@ -100,57 +100,76 @@ class ChatRunStore:
         status: ChatRunStatus,
         error: str | None = None,
     ) -> ChatRunRecord | None:
+        row = await asyncio.to_thread(
+            cq.update_run,
+            user_id=owner_user_id,
+            session_key=session_key,
+            text=text,
+            done=done,
+            status=status,
+            error=error,
+        )
+        if row is None:
+            return None
         async with self._lock:
-            record = self._runs.get((owner_user_id, session_key))
-            if record is None:
-                return None
-            if record.done and status in _STREAMING_STATUSES:
-                return record
-            record.text = text
-            record.done = done
-            record.status = status
-            record.error = error
-            record.updated_at = time.time()
+            key = self._event_key(owner_user_id, session_key)
+            cancel_event = self._cancel_events.get(key) or asyncio.Event()
             if done:
-                self._active_by_user.pop(owner_user_id, None)
-            return record
+                self._release_cancel_locked(owner_user_id, session_key)
+            return _record_from_row(row, cancel_event)
 
     async def get_run(self, *, owner_user_id: str, session_key: str) -> ChatRunRecord | None:
+        row = await asyncio.to_thread(
+            cq.get_run,
+            user_id=owner_user_id,
+            session_key=session_key,
+        )
+        if row is None:
+            return None
         async with self._lock:
-            await self._prune_locked()
-            return self._runs.get((owner_user_id, session_key))
+            key = self._event_key(owner_user_id, session_key)
+            if not row["done"] and row["status"] in _STREAMING_STATUSES:
+                cancel_event = self._cancel_events.get(key)
+                if cancel_event is None:
+                    cancel_event = asyncio.Event()
+                    self._cancel_events[key] = cancel_event
+            else:
+                cancel_event = self._cancel_events.get(key) or asyncio.Event()
+            return _record_from_row(row, cancel_event)
 
     async def list_active_for_user(self, owner_user_id: str) -> list[ChatRunRecord]:
+        rows = await asyncio.to_thread(cq.list_active_for_user, owner_user_id)
         async with self._lock:
-            await self._prune_locked()
-            active_key = self._active_by_user.get(owner_user_id)
-            if not active_key:
-                return []
-            record = self._runs.get((owner_user_id, active_key))
-            return [record] if record and not record.done else []
+            records: list[ChatRunRecord] = []
+            for row in rows:
+                key = self._event_key(owner_user_id, str(row["session_key"]))
+                cancel_event = self._cancel_events.get(key) or asyncio.Event()
+                records.append(_record_from_row(row, cancel_event))
+            return records
 
     async def request_cancel(self, *, owner_user_id: str, session_key: str) -> bool:
+        row = await asyncio.to_thread(
+            cq.get_run,
+            user_id=owner_user_id,
+            session_key=session_key,
+        )
+        if row is None or row["done"]:
+            return False
         async with self._lock:
-            record = self._runs.get((owner_user_id, session_key))
-            if record is None or record.done:
-                return False
-            record.cancel_event.set()
+            key = self._event_key(owner_user_id, session_key)
+            cancel_event = self._cancel_events.get(key)
+            if cancel_event is None:
+                cancel_event = asyncio.Event()
+                self._cancel_events[key] = cancel_event
+            cancel_event.set()
             return True
 
     async def is_user_busy(self, owner_user_id: str, *, except_session_key: str | None = None) -> bool:
-        async with self._lock:
-            active_key = self._active_by_user.get(owner_user_id)
-            if not active_key:
-                return False
-            record = self._runs.get((owner_user_id, active_key))
-            if record is None:
-                return False
-            await self._reclaim_stale_locked(record)
-            if record.done:
-                return False
-            if except_session_key and active_key == except_session_key:
-                return False
-            return True
+        return await asyncio.to_thread(
+            cq.has_active_run,
+            owner_user_id,
+            except_session_key=except_session_key,
+        )
 
 
 chat_run_store = ChatRunStore()

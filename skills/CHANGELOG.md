@@ -11,7 +11,7 @@ Skill 包版本与 `VERSIONS.md` 同步。
 
 - **目录迁移**：Skill 包由 `.cursor/skills/` 迁至仓库根目录 **`skills/`**（权威路径）
 - **Cursor 兼容**：`.cursor/skills` 改为指向 `skills/` 的符号链接
-- 全部文档与 Skill 内 `docs/` 相对路径已对齐新结构
+- 全部文档与 Skill 内 `docs/` 相对路径已对齐 `docs/00-overview` … `docs/_agent` 结构
 
 ---
 
@@ -19,7 +19,7 @@ Skill 包版本与 `VERSIONS.md` 同步。
 
 ### Added
 
-- **部署文档**：`docs/human/deployment/openclaw-skills-gateway.md`（Gateway 挂载、API Key、更新与验证）
+- **部署文档**：`docs/01-getting-started/openclaw-gateway.md`（Gateway 挂载、API Key、更新与验证）
 
 - **架构**：`SKILL_REFACTOR_PLAN.md` 多用户 SaaS Skill 重构计划
 - **_shared**：`report-schema.md`、`ownership-policy.md`、`report-security.md`

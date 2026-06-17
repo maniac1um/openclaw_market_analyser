@@ -184,8 +184,7 @@ curl -sS -X POST "${BASE_URL}/api/v1/openclaw/monitoring/bootstrap" \
 - [`../_shared/quota-policy.md`](../_shared/quota-policy.md)
 - [`../_shared/workspace-api-roadmap.md`](../_shared/workspace-api-roadmap.md)
 - [`../CHANGELOG.md`](../CHANGELOG.md) · [`../VERSIONS.md`](../VERSIONS.md)
-- [`../../docs/archive/multi-user/migration-plan-2026-06-05.md`](../../docs/archive/multi-user/migration-plan-2026-06-05.md)
-- [`../../docs/human/api/openclaw-intake.md`](../../docs/human/api/openclaw-intake.md)
+- [`../../docs/02-backend/api.md`](../../docs/02-backend/api.md)
 
 ---
 
