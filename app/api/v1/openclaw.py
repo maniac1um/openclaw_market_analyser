@@ -115,8 +115,6 @@ def get_ingest_status(
         request_id=record.request_id,
         task_id=record.task_id,
         status=record.status,
-        raw_path=record.raw_path,
-        rendered_path=record.rendered_path,
         error=record.error,
     )
 
@@ -167,14 +165,17 @@ def bootstrap_monitoring(
         allow_server_scrape=settings.monitoring_allow_server_scrape,
     )
     service.ensure_tables()
-    monitor_id, urls = service.bootstrap_monitor(
-        keyword=payload.keyword,
-        candidate_count=payload.candidate_count,
-        platforms=payload.platforms,
-        cadence=payload.cadence,
-        source_profile=payload.source_profile,
-        user_id=user.id,
-    )
+    try:
+        monitor_id, urls = service.bootstrap_monitor(
+            keyword=payload.keyword,
+            candidate_count=payload.candidate_count,
+            platforms=payload.platforms,
+            cadence=payload.cadence,
+            source_profile=payload.source_profile,
+            user_id=user.id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
     return MonitoringBootstrapResponse(
         monitor_id=monitor_id,
         keyword=payload.keyword,

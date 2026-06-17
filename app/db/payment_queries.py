@@ -64,8 +64,13 @@ def create_payment(
 ) -> dict[str, Any]:
     """Create a pending payment order (no token credit until confirmed)."""
     ensure_payment_tables()
-    token_credit = max(1, int(tokens if tokens is not None else settings.simulated_recharge_amount))
+    cap = settings.simulated_recharge_amount
+    token_credit = max(1, int(tokens if tokens is not None else cap))
+    if token_credit > cap:
+        raise ValueError(f"tokens must not exceed {cap}")
     pay_amount = max(1, int(amount if amount is not None else token_credit))
+    if pay_amount > cap:
+        raise ValueError(f"amount must not exceed {cap}")
     payment_id = str(uuid.uuid4())
 
     with _connect() as conn, conn.cursor() as cur:

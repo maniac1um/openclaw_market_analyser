@@ -19,7 +19,6 @@ _VALID_SOURCES = frozenset(
 def ensure_token_grant_tables() -> None:
     if not settings.database_url:
         return
-    ensure_user_tables()
     sql = """
     CREATE TABLE IF NOT EXISTS token_grants (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -33,6 +32,7 @@ def ensure_token_grant_tables() -> None:
     """
     with _connect() as conn, conn.cursor() as cur:
         cur.execute(sql)
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS token_balance BIGINT NOT NULL DEFAULT 0")
         cur.execute("DELETE FROM token_usage WHERE endpoint = 'payment'")
         cur.execute(
             """
@@ -67,7 +67,8 @@ def grant_tokens(
     """Record a token grant. Returns grant id."""
     from app.db.token_queries import invalidate_balance_cache
 
-    ensure_token_grant_tables()
+    if conn is None or cur is None:
+        ensure_token_grant_tables()
     grant_source = _validate_source(source)
     grant_amount = max(1, int(amount))
     grant_id = str(uuid.uuid4())

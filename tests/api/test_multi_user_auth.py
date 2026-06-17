@@ -3,7 +3,7 @@ import uuid
 from fastapi.testclient import TestClient
 
 from app.main import app
-from tests.api.conftest import AuthTestUser, api_key_headers, login_client
+from tests.api.conftest import AuthTestUser, cookie_write_headers, login_client
 
 
 def test_public_reports_unauthenticated_returns_401() -> None:
@@ -95,7 +95,10 @@ def test_auth_logout_clears_session(admin_user: AuthTestUser) -> None:
 
 def test_auth_refresh_rotates_access(admin_user: AuthTestUser) -> None:
     client = login_client(admin_user)
-    refresh = client.post("/api/v1/public/auth/refresh")
+    refresh = client.post(
+        "/api/v1/public/auth/refresh",
+        headers=cookie_write_headers(client),
+    )
     assert refresh.status_code == 200
     assert refresh.json()["access_token"]
 

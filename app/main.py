@@ -1,11 +1,10 @@
-import json
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.auth import router as auth_router
@@ -181,14 +180,10 @@ def create_app() -> FastAPI:
             if not index.is_file():
                 return None
             if settings.portal_embed_api_key_in_spa:
-                content = index.read_text(encoding="utf-8")
-                runtime = json.dumps({"apiKey": settings.openclaw_api_key}, ensure_ascii=False)
-                inject = f"<script>window.__OPENCLAW_RUNTIME__={runtime}</script>"
-                if "</head>" in content:
-                    content = content.replace("</head>", f"  {inject}\n  </head>", 1)
-                else:
-                    content = inject + content
-                return HTMLResponse(content)
+                logging.getLogger(__name__).error(
+                    "OPENCLAW_PORTAL_EMBED_API_KEY_IN_SPA is deprecated and ignored; "
+                    "use per-user API keys or JWT."
+                )
             return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
         @app.get("/{full_path:path}", include_in_schema=False)

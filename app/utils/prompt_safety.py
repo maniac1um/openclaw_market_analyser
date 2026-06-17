@@ -3,6 +3,14 @@
 from __future__ import annotations
 
 import re
+import unicodedata
+
+_ZERO_WIDTH_RE = re.compile(r"[\u200b-\u200d\ufeff]")
+
+
+def _normalize_for_scan(text: str) -> str:
+    cleaned = unicodedata.normalize("NFKC", text or "")
+    return _ZERO_WIDTH_RE.sub("", cleaned).strip()
 
 # Each entry: (compiled pattern, user-facing category label)
 _BLOCKED: list[tuple[re.Pattern[str], str]] = [
@@ -97,7 +105,7 @@ _GATEWAY_USER_BLOCKED: list[tuple[re.Pattern[str], str]] = [
 
 def check_user_message(text: str) -> str | None:
     """Return a short rejection reason if *text* should be blocked, else None."""
-    normalized = (text or "").strip()
+    normalized = _normalize_for_scan(text)
     if not normalized:
         return "empty message"
     if len(normalized) > 4000:
@@ -110,7 +118,7 @@ def check_user_message(text: str) -> str | None:
 
 def check_gateway_user_message(text: str) -> str | None:
     """Stricter checks for portal USER role before Gateway forwarding."""
-    normalized = (text or "").strip()
+    normalized = _normalize_for_scan(text)
     if not normalized:
         return "empty message"
     for pattern, category in _GATEWAY_USER_BLOCKED:

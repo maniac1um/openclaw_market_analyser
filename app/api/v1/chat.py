@@ -42,6 +42,26 @@ from app.utils.public_errors import sanitize_client_error, sanitize_gateway_prob
 
 logger = logging.getLogger(__name__)
 
+_active_chat_turns = 0
+_active_chat_turns_lock = asyncio.Lock()
+
+
+async def _try_acquire_global_chat_turn() -> bool:
+    global _active_chat_turns
+    cap = max(1, int(settings.chat_max_concurrent_turns))
+    async with _active_chat_turns_lock:
+        if _active_chat_turns >= cap:
+            return False
+        _active_chat_turns += 1
+        return True
+
+
+async def _release_global_chat_turn() -> None:
+    global _active_chat_turns
+    async with _active_chat_turns_lock:
+        _active_chat_turns = max(0, _active_chat_turns - 1)
+
+
 router = APIRouter(
     prefix="/chat",
     tags=["OpenClaw 对话"],
@@ -119,6 +139,34 @@ async def _charge_chat_turn(
 
 
 async def _execute_chat_turn(
+    *,
+    owner_user_id: str,
+    portal_role: str,
+    client_session_key: str,
+    user_text: str,
+    connect_ctx: GatewayConnectContext,
+    cancel_event: asyncio.Event,
+    turn_generation: int,
+    publish: Callable[[dict[str, Any]], Awaitable[None]],
+    audit_decision: str,
+) -> None:
+    try:
+        await _execute_chat_turn_inner(
+            owner_user_id=owner_user_id,
+            portal_role=portal_role,
+            client_session_key=client_session_key,
+            user_text=user_text,
+            connect_ctx=connect_ctx,
+            cancel_event=cancel_event,
+            turn_generation=turn_generation,
+            publish=publish,
+            audit_decision=audit_decision,
+        )
+    finally:
+        await _release_global_chat_turn()
+
+
+async def _execute_chat_turn_inner(
     *,
     owner_user_id: str,
     portal_role: str,
@@ -367,14 +415,13 @@ async def get_chat_run(session_key: str, user: CurrentUser) -> dict[str, Any]:
 
 @router.websocket("/ws")
 async def chat_ws(websocket: WebSocket) -> None:
-    if settings.production_mode and websocket.query_params.get("token"):
+    if websocket.query_params.get("token"):
         await websocket.close(code=1008, reason="Unauthorized")
         return
-    bearer = None if settings.production_mode else websocket.query_params.get("token")
     ws_user = resolve_websocket_user(
         header_api_key=websocket.headers.get("x-api-key"),
         portal_cookie=websocket.cookies.get(PORTAL_SESSION_COOKIE),
-        bearer_token=bearer,
+        bearer_token=None,
         refresh_cookie=websocket.cookies.get(REFRESH_COOKIE),
     )
     if ws_user is None:
@@ -525,6 +572,16 @@ async def chat_ws(websocket: WebSocket) -> None:
                 )
                 continue
 
+            if not await _try_acquire_global_chat_turn():
+                await publish(
+                    {
+                        "type": "assistant_error",
+                        "sessionKey": session_key,
+                        "error": "Server busy: global chat capacity reached.",
+                    },
+                )
+                continue
+
             try:
                 record = await chat_run_store.begin_run(
                     owner_user_id=owner_user_id,
@@ -532,6 +589,7 @@ async def chat_ws(websocket: WebSocket) -> None:
                     user_text=user_text.strip(),
                 )
             except RuntimeError:
+                await _release_global_chat_turn()
                 await publish(
                     {
                         "type": "assistant_error",

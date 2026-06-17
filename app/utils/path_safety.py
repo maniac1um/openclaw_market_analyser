@@ -10,6 +10,14 @@ def parse_uuid(value: str) -> str | None:
         return None
 
 
+def require_uuid(value: str, field: str = "id") -> str:
+    """Return canonical UUID string or raise ValueError for invalid input."""
+    canonical = parse_uuid(value)
+    if not canonical:
+        raise ValueError(f"invalid {field} UUID")
+    return canonical
+
+
 def safe_child_path(root: Path, name: str, *, suffix: str = "") -> Path | None:
     """
     Resolve root / (name + suffix) and ensure the result stays under root.

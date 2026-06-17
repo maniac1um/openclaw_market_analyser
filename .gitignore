@@ -28,6 +28,7 @@ htmlcov/
 # Generated report data (do not commit runtime outputs)
 /content/reports/raw/*.json
 /content/reports/rendered/*.json
+/content/bootstrap/.initial_admin_password
 
 # Keep helper scripts in git; they should stay generic and secret-free.
 

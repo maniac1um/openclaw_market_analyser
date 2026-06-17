@@ -62,9 +62,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [accessToken])
 
   const refreshSession = useCallback(async (): Promise<boolean> => {
+    const headers: Record<string, string> = {}
+    const csrf = readCsrfCookie()
+    if (csrf) headers['X-CSRF-Token'] = csrf
     const res = await fetch('/api/v1/public/auth/refresh', {
       method: 'POST',
       credentials: 'include',
+      headers,
     })
     if (!res.ok) {
       setUser(null)
@@ -142,7 +146,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const logout = useCallback(async () => {
-    await fetch('/api/v1/public/auth/logout', { method: 'DELETE', credentials: 'include' })
+    const headers: Record<string, string> = {}
+    const csrf = readCsrfCookie()
+    if (csrf) headers['X-CSRF-Token'] = csrf
+    await fetch('/api/v1/public/auth/logout', { method: 'DELETE', credentials: 'include', headers })
     setUser(null)
     setAccessToken(null)
   }, [])

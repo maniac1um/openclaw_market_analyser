@@ -523,6 +523,23 @@ def ensure_external_scheduler_tables() -> None:
             """
         )
         cur.execute("ALTER TABLE external_scheduler_configs ADD COLUMN IF NOT EXISTS user_id UUID")
+        cur.execute(
+            """
+            UPDATE external_scheduler_configs
+            SET user_id = %s::uuid
+            WHERE user_id IS NULL
+            """,
+            ("00000000-0000-0000-0000-000000000001",),
+        )
+        cur.execute(
+            "ALTER TABLE external_scheduler_configs DROP CONSTRAINT IF EXISTS external_scheduler_configs_pkey"
+        )
+        cur.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_external_scheduler_configs_user_job
+              ON external_scheduler_configs (user_id, job_name)
+            """
+        )
         conn.commit()
 
 
@@ -716,15 +733,14 @@ def upsert_external_scheduler_config(payload: ExternalSchedulerConfigRequest, ct
               job_name, monitor_id, cron_expr, timezone, enabled, retry_policy, notes, updated_at, user_id
             )
             VALUES (%s, %s::uuid, %s, %s, %s, %s, %s, NOW(), %s::uuid)
-            ON CONFLICT (job_name) DO UPDATE SET
+            ON CONFLICT (user_id, job_name) DO UPDATE SET
               monitor_id = EXCLUDED.monitor_id,
               cron_expr = EXCLUDED.cron_expr,
               timezone = EXCLUDED.timezone,
               enabled = EXCLUDED.enabled,
               retry_policy = EXCLUDED.retry_policy,
               notes = EXCLUDED.notes,
-              updated_at = NOW(),
-              user_id = EXCLUDED.user_id
+              updated_at = NOW()
             RETURNING updated_at
             """,
             (

@@ -9,6 +9,7 @@ import os
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
@@ -21,8 +22,19 @@ logger = logging.getLogger(__name__)
 
 BOOTSTRAP_ADMIN_EMAIL = "admin@localhost"
 BOOTSTRAP_ADMIN_DEFAULT_PASSWORD = "Test_648."
+_BOOTSTRAP_PASSWORD_FILE = Path("content/bootstrap/.initial_admin_password")
 _PLACEHOLDER_PASSWORD_HASH = "$argon2id$bootstrap$placeholder"
 _bootstrap_ph = PasswordHasher()
+
+
+def _write_bootstrap_password_file(password: str) -> None:
+    path = _BOOTSTRAP_PASSWORD_FILE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(password + "\n", encoding="utf-8")
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
 
 
 def bootstrap_admin_password_hash() -> str:
@@ -30,11 +42,13 @@ def bootstrap_admin_password_hash() -> str:
     if explicit:
         return _bootstrap_ph.hash(explicit)
     generated = secrets.token_urlsafe(24)
+    _write_bootstrap_password_file(generated)
     logger.warning(
-        "Bootstrap admin %s created with a one-time random password (check secure logs / set OPENCLAW_BOOTSTRAP_ADMIN_PASSWORD).",
+        "Bootstrap admin %s created with a one-time random password written to %s "
+        "(or set OPENCLAW_BOOTSTRAP_ADMIN_PASSWORD).",
         BOOTSTRAP_ADMIN_EMAIL,
+        _BOOTSTRAP_PASSWORD_FILE,
     )
-    logger.warning("Bootstrap admin one-time password: %s", generated)
     return _bootstrap_ph.hash(generated)
 
 
@@ -129,9 +143,6 @@ def ensure_user_tables() -> None:
         cur.execute(sql)
         cur.execute("ALTER TABLE reports ADD COLUMN IF NOT EXISTS user_id UUID")
         conn.commit()
-    from app.db.token_queries import ensure_token_tables
-
-    ensure_token_tables()
 
 
 def ensure_bootstrap_admin() -> str | None:
@@ -223,6 +234,10 @@ def backfill_news_user_ids(admin_id: str) -> None:
 
 
 def run_multi_user_migrations() -> None:
+    ensure_user_tables()
+    from app.db.token_queries import ensure_token_tables
+
+    ensure_token_tables()
     admin_id = ensure_bootstrap_admin()
     if admin_id:
         backfill_monitor_user_ids(admin_id)
@@ -298,6 +313,47 @@ def count_users() -> int:
         cur.execute("SELECT COUNT(*) FROM users")
         row = cur.fetchone()
     return int(row[0]) if row else 0
+
+
+_REGISTRATION_ADVISORY_LOCK_KEY = 74829103
+
+
+def register_new_user(
+    *,
+    email: str,
+    username: str,
+    password_hash: str,
+) -> User:
+    """Create a user under advisory lock so only one first-user ADMIN is possible."""
+    ensure_user_tables()
+    user_id = str(uuid.uuid4())
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute("SELECT pg_advisory_xact_lock(%s)", (_REGISTRATION_ADVISORY_LOCK_KEY,))
+        cur.execute("SELECT COUNT(*)::int FROM users")
+        count = int(cur.fetchone()[0])
+        role = "ADMIN" if count == 0 and settings.first_user_is_admin else "USER"
+        cur.execute(
+            """
+            INSERT INTO users (id, email, username, password_hash, role, status)
+            VALUES (%s::uuid, %s, %s, %s, %s, 'active')
+            RETURNING id, email, username, role, status, created_at, updated_at, last_login_at
+            """,
+            (user_id, normalize_email(email), username.strip(), password_hash, role),
+        )
+        row = cur.fetchone()
+        from app.db.subscription_queries import create_default_subscription
+        from app.db.token_grant_queries import GRANT_SOURCE_BONUS, grant_tokens
+
+        create_default_subscription(user_id, conn=conn, cur=cur)
+        grant_tokens(
+            user_id,
+            int(settings.default_token_balance),
+            GRANT_SOURCE_BONUS,
+            conn=conn,
+            cur=cur,
+        )
+        conn.commit()
+    return _row_to_user(row)
 
 
 def create_user(

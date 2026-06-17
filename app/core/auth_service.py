@@ -162,9 +162,8 @@ def register_user(*, email: str, username: str, password: str) -> tuple[User, To
     if uq.get_user_by_username(username):
         raise HTTPException(status_code=409, detail="Username already taken")
 
-    role = ADMIN_ROLE if uq.count_users() == 0 and settings.first_user_is_admin else USER_ROLE
     password_hash = hash_password(password)
-    user = uq.create_user(email=email, username=username, password_hash=password_hash, role=role)
+    user = uq.register_new_user(email=email, username=username, password_hash=password_hash)
     tokens = issue_tokens(user)
     return user, tokens
 
@@ -222,27 +221,6 @@ def legacy_admin_context() -> QueryContext:
 def resolve_user_from_api_key(raw_key: str | None) -> User | None:
     if not raw_key:
         return None
-    if settings.legacy_api_key_enabled and secrets.compare_digest(
-        raw_key.encode("utf-8"), settings.openclaw_api_key.encode("utf-8")
-    ):
-        ctx = legacy_admin_context()
-        try:
-            user = uq.get_user_by_id(ctx.user_id)
-            if user:
-                return user
-        except Exception:
-            pass
-        from datetime import datetime, timezone
-
-        return User(
-            id=ctx.user_id,
-            email="admin@localhost",
-            username="admin",
-            role=ADMIN_ROLE,
-            status="active",
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
-        )
     if not settings.database_url:
         return None
     return uq.get_user_by_api_key(raw_key)

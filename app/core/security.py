@@ -30,9 +30,11 @@ def is_valid_api_key(api_key: str | None) -> bool:
         user = resolve_user_from_api_key(api_key)
         if user:
             return True
-    expected = settings.openclaw_api_key.encode("utf-8")
-    provided = api_key.encode("utf-8")
-    return secrets.compare_digest(provided, expected)
+    if settings.legacy_api_key_enabled and not settings.production_mode:
+        expected = settings.openclaw_api_key.encode("utf-8")
+        provided = api_key.encode("utf-8")
+        return secrets.compare_digest(provided, expected)
+    return False
 
 
 def verify_api_key(x_api_key: str | None = Header(default=None)) -> User:
@@ -67,7 +69,7 @@ def portal_session_token() -> str:
 
 
 def is_valid_portal_session(cookie_value: str | None) -> bool:
-    if settings.production_mode:
+    if settings.production_mode or not settings.legacy_portal_session_enabled:
         return False
     if not cookie_value:
         return False

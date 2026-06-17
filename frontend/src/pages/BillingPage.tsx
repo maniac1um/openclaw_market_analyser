@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Button } from '../components/ui/Button'
 import { useAuth } from '../lib/AuthContext'
-import { api } from '../lib/api'
+import { api, type Payment } from '../lib/api'
 
 function formatTokens(value: number | undefined): string {
   if (value == null) return '—'
@@ -13,6 +13,21 @@ function formatTokens(value: number | undefined): string {
 function planLabel(plan: string | undefined): string {
   if (plan === 'pro') return 'Pro'
   return 'Free'
+}
+
+const POLL_INTERVAL_MS = 500
+const POLL_TIMEOUT_MS = 15_000
+
+async function pollPaymentUntilDone(paymentId: string): Promise<Payment> {
+  const deadline = Date.now() + POLL_TIMEOUT_MS
+  while (Date.now() < deadline) {
+    const payment = await api.getPayment(paymentId)
+    if (payment.status === 'success' || payment.status === 'failed') {
+      return payment
+    }
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
+  }
+  throw new Error('支付状态查询超时，请稍后刷新余额')
 }
 
 export function BillingPage() {
@@ -45,6 +60,24 @@ export function BillingPage() {
     onError: (err: Error) => toast.error(err.message),
   })
 
+  const rechargeMutation = useMutation({
+    mutationFn: async () => {
+      const order = await api.createPayment()
+      await api.confirmPayment(order.id)
+      return pollPaymentUntilDone(order.id)
+    },
+    onSuccess: async (payment) => {
+      if (payment.status === 'failed') {
+        toast.error('支付失败，请重试')
+        return
+      }
+      await balanceQuery.refetch()
+      await refreshUser()
+      toast.success(`已充值 +${payment.tokens.toLocaleString()} tokens`)
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
   const plan = subscriptionQuery.data?.plan ?? 'free'
   const isPro = plan === 'pro' && subscriptionQuery.data?.status === 'active'
   const balance = balanceQuery.data?.balance
@@ -53,7 +86,7 @@ export function BillingPage() {
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col gap-6">
       <header className="border-b border-[var(--ds-border)] pb-4">
-        <h1 className="text-lg font-semibold text-[var(--ds-text-primary)]">订阅</h1>
+        <h1 className="text-lg font-semibold text-[var(--ds-text-primary)]">订阅与充值</h1>
       </header>
 
       <div className="flex flex-col gap-1">
@@ -81,20 +114,36 @@ export function BillingPage() {
         </div>
       </div>
 
-      {!isPro && (
-        <Button
-          variant="primary"
-          className="h-10 w-full text-sm"
-          disabled={isDemo || upgradeMutation.isPending}
-          onClick={() => upgradeMutation.mutate()}
-        >
-          {upgradeMutation.isPending ? '处理中…' : '升级 Pro'}
-        </Button>
-      )}
+      <div className="flex flex-col gap-3 border-t border-[var(--ds-border)] pt-4">
+        {!isPro && (
+          <Button
+            variant="primary"
+            className="h-10 w-full text-sm"
+            disabled={isDemo || upgradeMutation.isPending}
+            onClick={() => upgradeMutation.mutate()}
+          >
+            {upgradeMutation.isPending ? '处理中…' : '升级 Pro'}
+          </Button>
+        )}
 
-      {isDemo && (
-        <p className="text-xs text-amber-500">演示账号为只读，请注册正式账号后升级。</p>
-      )}
+        <Button
+          variant="secondary"
+          className="h-10 w-full text-sm"
+          disabled={isDemo || rechargeMutation.isPending}
+          onClick={() => rechargeMutation.mutate()}
+        >
+          {rechargeMutation.isPending ? '处理中…' : '充值 +1,000 tokens'}
+        </Button>
+
+        {isDemo && (
+          <p className="text-xs text-amber-500">演示账号为只读，请注册正式账号后充值或升级。</p>
+        )}
+        {!isDemo && (
+          <p className="text-xs text-[var(--ds-text-secondary)]">
+            模拟充值：创建订单后自动确认到账（非真实支付）。
+          </p>
+        )}
+      </div>
 
       <p className="text-xs text-[var(--ds-text-secondary)]">
         <Link to="/app/usage" className="text-[var(--color-accent)] hover:underline">

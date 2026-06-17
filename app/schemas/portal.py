@@ -24,6 +24,16 @@ class ExternalSchedulerHeartbeatRequest(BaseModel):
     monitor_id: str | None = Field(default=None, max_length=64)
     message: str | None = Field(default=None, max_length=2000)
 
+    @field_validator("monitor_id")
+    @classmethod
+    def validate_monitor_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        canonical = parse_uuid(value)
+        if not canonical:
+            raise ValueError(f"invalid monitor_id UUID: {value}")
+        return canonical
+
 
 class WorkflowBootstrapRequest(BaseModel):
     keyword: str = Field(min_length=1, max_length=100)
@@ -42,6 +52,14 @@ class WorkflowTriggerRequest(BaseModel):
     horizon: str = Field(default="24h", max_length=32)
     publish: bool = True
 
+    @field_validator("monitor_id")
+    @classmethod
+    def validate_monitor_id(cls, value: str) -> str:
+        canonical = parse_uuid(value)
+        if not canonical:
+            raise ValueError(f"invalid monitor_id UUID: {value}")
+        return canonical
+
 
 class ExternalSchedulerConfigRequest(BaseModel):
     job_name: str = Field(min_length=1, max_length=120)
@@ -51,6 +69,14 @@ class ExternalSchedulerConfigRequest(BaseModel):
     enabled: bool = True
     retry_policy: str = Field(default="no-retry", max_length=32)
     notes: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("monitor_id")
+    @classmethod
+    def validate_monitor_id(cls, value: str) -> str:
+        canonical = parse_uuid(value)
+        if not canonical:
+            raise ValueError(f"invalid monitor_id UUID: {value}")
+        return canonical
 
 
 class ExternalSchedulerToggleRequest(BaseModel):
@@ -68,3 +94,11 @@ class NewsTriggerAnalysisRequest(BaseModel):
     news_hours: int = Field(default=72, ge=1, le=24 * 30)
     horizon: str = Field(default="24h", max_length=32)
     publish: bool = False
+
+    @field_validator("monitor_id")
+    @classmethod
+    def validate_monitor_id(cls, value: str) -> str:
+        canonical = parse_uuid(value)
+        if not canonical:
+            raise ValueError(f"invalid monitor_id UUID: {value}")
+        return canonical

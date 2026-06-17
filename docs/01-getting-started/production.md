@@ -25,6 +25,8 @@ flowchart LR
 | 生产 Checklist | |
 |----------------|--|
 | `OPENCLAW_PRODUCTION=true` | |
+| `OPENCLAW_PAYMENTS_SIMULATED_CONFIRM_ENABLED=false` | |
+| `OPENCLAW_SUBSCRIPTIONS_SIMULATED_UPGRADE_ENABLED=false` | |
 | `OPENCLAW_JWT_SECRET` ≥32 字符 | |
 | Gateway 双 Agent + 防火墙 18789 | [gateway-isolation](../02-backend/gateway-isolation.md) |
 | Nginx WebSocket 升级 | `proxy_set_header Upgrade` |

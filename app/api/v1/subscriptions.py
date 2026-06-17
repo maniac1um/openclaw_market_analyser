@@ -23,6 +23,9 @@ def upgrade_subscription(user: CurrentUser) -> SubscriptionResponse:
     if not settings.database_url:
         raise HTTPException(status_code=503, detail="User database is not configured")
     reject_demo_write(user)
+    _reject_simulated_billing_in_production()
+    if not settings.subscriptions_simulated_upgrade_enabled:
+        raise HTTPException(status_code=403, detail="Simulated subscription upgrade is disabled")
     sub = sub_q.upgrade_subscription(str(user.id))
     return SubscriptionResponse(**sub_q.subscription_to_dict(sub))
 

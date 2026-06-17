@@ -56,6 +56,9 @@ def _production_base(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.core.config.settings.allow_registration", False)
     monkeypatch.setattr("app.core.config.settings.first_user_is_admin", False)
     monkeypatch.setattr("app.core.config.settings.demo_seed_enabled", False)
+    monkeypatch.setattr("app.core.config.settings.payments_simulated_confirm_enabled", False)
+    monkeypatch.setattr("app.core.config.settings.admin_cross_tenant_access", False)
+    monkeypatch.setattr("app.core.config.settings.monitoring_allow_server_scrape", False)
     monkeypatch.setattr("app.db.user_queries.bootstrap_admin_uses_default_password", lambda: False)
 
 

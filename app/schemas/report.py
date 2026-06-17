@@ -74,6 +74,4 @@ class IngestStatusResponse(BaseModel):
     request_id: str = Field(description="请求幂等键")
     task_id: str = Field(description="OpenClaw 任务 ID")
     status: str = Field(description="任务状态：queued/processing/published/failed")
-    raw_path: str = Field(description="原始入站数据路径")
-    rendered_path: str | None = Field(default=None, description="渲染后数据路径")
     error: str | None = Field(default=None, description="失败原因")

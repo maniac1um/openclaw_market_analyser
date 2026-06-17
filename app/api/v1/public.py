@@ -32,9 +32,17 @@ from app.services.monitoring_service import MonitoringService
 from app.services.news_analysis_service import run_news_trigger_analysis
 from app.services.token_service import ROUTE_AGENT, ROUTE_WORKFLOW, enrich_usage_entries
 from app.services.notification_service import emit_monitor_error
-from app.utils.path_safety import parse_uuid
+from app.utils.path_safety import parse_uuid, require_uuid
 
 router = APIRouter(tags=["public"])
+
+
+def _reject_simulated_billing_in_production() -> None:
+    if settings.production_mode:
+        raise HTTPException(
+            status_code=403,
+            detail="Simulated billing operations are disabled in production",
+        )
 
 
 @router.get("/public/usage/stats", response_model=UsageStatsResponse, summary="Token 使用统计")
@@ -69,11 +77,14 @@ def create_payment_order(
     if not settings.database_url:
         raise HTTPException(status_code=503, detail="User database is not configured")
     reject_demo_write(user)
-    payment = pay_q.create_payment(
-        str(user.id),
-        tokens=body.tokens,
-        amount=body.amount,
-    )
+    try:
+        payment = pay_q.create_payment(
+            str(user.id),
+            tokens=body.tokens,
+            amount=body.amount,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     return PaymentResponse(**payment)
 
 
@@ -81,7 +92,10 @@ def create_payment_order(
 def get_payment_order(user: CurrentUser, payment_id: str) -> PaymentResponse:
     if not settings.database_url:
         raise HTTPException(status_code=503, detail="User database is not configured")
-    payment_uuid = parse_uuid(payment_id, "payment_id")
+    try:
+        payment_uuid = require_uuid(payment_id, "payment_id")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     payment = pay_q.get_payment(payment_uuid, str(user.id))
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
@@ -98,8 +112,14 @@ def confirm_payment_order(user: CurrentUser, payment_id: str) -> PaymentResponse
 
     if not settings.database_url:
         raise HTTPException(status_code=503, detail="User database is not configured")
+    _reject_simulated_billing_in_production()
+    if not settings.payments_simulated_confirm_enabled:
+        raise HTTPException(status_code=403, detail="Simulated payment confirmation is disabled")
     reject_demo_write(user)
-    payment_uuid = parse_uuid(payment_id, "payment_id")
+    try:
+        payment_uuid = require_uuid(payment_id, "payment_id")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     try:
         payment = pay_q.confirm_payment(payment_uuid, str(user.id))
     except KeyError:
@@ -394,14 +414,17 @@ def public_workflow_monitor_bootstrap(
         allow_server_scrape=settings.monitoring_allow_server_scrape,
     )
     svc.ensure_tables()
-    monitor_id, urls = svc.bootstrap_monitor(
-        keyword=req.keyword,
-        candidate_count=req.candidate_count,
-        platforms=req.platforms,
-        cadence=req.cadence,
-        source_profile=req.source_profile,
-        user_id=user.id,
-    )
+    try:
+        monitor_id, urls = svc.bootstrap_monitor(
+            keyword=req.keyword,
+            candidate_count=req.candidate_count,
+            platforms=req.platforms,
+            cadence=req.cadence,
+            source_profile=req.source_profile,
+            user_id=user.id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
     return {
         "monitor_id": monitor_id,
         "keyword": req.keyword,
@@ -457,7 +480,7 @@ def report_external_scheduler_heartbeat(
         source="heartbeat",
         user_id=user.id,
     )
-    request.app.state.external_scheduler_jobs[payload.job_name] = {
+    request.app.state.external_scheduler_jobs[f"{user.id}:{payload.job_name}"] = {
         "status": payload.status,
         "monitor_id": payload.monitor_id,
         "message": payload.message,

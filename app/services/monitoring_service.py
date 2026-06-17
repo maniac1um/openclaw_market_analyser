@@ -4,7 +4,6 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from urllib.error import URLError
 from urllib.parse import quote_plus
-from urllib.request import Request, urlopen
 
 
 def _now_iso() -> str:
@@ -319,6 +318,19 @@ class MonitoringService:
     ) -> tuple[str, list[str]]:
         if not platforms:
             platforms = ["taobao", "tmall", "jd", "news"]
+        if user_id:
+            from app.core.config import settings
+
+            with self._connect() as conn, conn.cursor() as cur:
+                cur.execute(
+                    "SELECT COUNT(*)::int FROM price_monitors WHERE user_id = %s::uuid",
+                    (user_id,),
+                )
+                existing = int(cur.fetchone()[0])
+            if existing >= int(settings.monitoring_max_per_user):
+                raise ValueError(
+                    f"monitor limit reached (max {settings.monitoring_max_per_user} per user)"
+                )
         resolved = source_profile.strip().lower() if source_profile else "auto"
         if resolved == "auto":
             resolved = self.infer_source_profile(keyword)
@@ -418,18 +430,15 @@ class MonitoringService:
                 status = "ok"
                 raw_payload: dict = {"platform": platform, "url": url}
                 try:
-                    from app.utils.ssrf_guard import validate_outbound_http_url
+                    from app.utils.ssrf_guard import fetch_public_http_url
 
-                    safe_url = validate_outbound_http_url(url)
-                    req = Request(safe_url, headers={"User-Agent": "Mozilla/5.0 OpenClaw-Monitor/1.0"})
-                    with urlopen(req, timeout=timeout_seconds) as resp:
-                        body = resp.read(400_000)
-                        html = body.decode("utf-8", errors="ignore")
-                        title = self._extract_title(html)
-                        price, candidates = self._extract_price(html, platform=platform)
-                        raw_payload["http_status"] = getattr(resp, "status", None)
-                        raw_payload["content_preview"] = html[:600]
-                        raw_payload["price_candidates"] = candidates[:20]
+                    body, http_status = fetch_public_http_url(url, timeout=timeout_seconds)
+                    html = body.decode("utf-8", errors="ignore")
+                    title = self._extract_title(html)
+                    price, candidates = self._extract_price(html, platform=platform)
+                    raw_payload["http_status"] = http_status
+                    raw_payload["content_preview"] = html[:600]
+                    raw_payload["price_candidates"] = candidates[:20]
                 except (TimeoutError, URLError, ValueError) as exc:
                     status = "error"
                     error = str(exc)

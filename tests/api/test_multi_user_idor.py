@@ -21,7 +21,16 @@ def test_delete_reports_sql_includes_user_filter() -> None:
     assert params[0] == ctx.user_id
 
 
-def test_admin_delete_reports_sql_no_user_filter() -> None:
+def test_admin_delete_reports_sql_scoped_by_default() -> None:
+    ctx = QueryContext(user_id="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", role="ADMIN")
+    clause, params = ctx.owner_clause()
+    sql = f"DELETE FROM reports WHERE ingest_id = %s::uuid{clause}"
+    assert "user_id" in sql
+    assert params[0] == ctx.user_id
+
+
+def test_admin_delete_reports_sql_no_user_filter_when_cross_tenant(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.core.config.settings.admin_cross_tenant_access", True)
     ctx = QueryContext(user_id="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", role="ADMIN")
     clause, params = ctx.owner_clause()
     sql = f"DELETE FROM reports WHERE ingest_id = %s::uuid{clause}"

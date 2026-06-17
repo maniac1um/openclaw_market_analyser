@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from app.core.startup_checks import validate_security_config
 from app.main import app
 from app.schemas.report import OpenClawReportIn
+from tests.api.conftest import AuthTestUser, cookie_write_headers, login_client
 
 
 def _auth_headers(api_key: str) -> dict[str, str]:
@@ -87,3 +88,127 @@ def test_ssrf_guard_blocks_localhost() -> None:
 
     with pytest.raises(ValueError):
         validate_outbound_http_url("http://127.0.0.1/admin")
+
+
+def test_ssrf_guard_blocks_unresolvable_host() -> None:
+    from app.utils.ssrf_guard import validate_outbound_http_url
+
+    with pytest.raises(ValueError):
+        validate_outbound_http_url("http://this-host-does-not-exist-7f3a9b.example.invalid/")
+
+
+def test_payment_tokens_capped_at_simulated_recharge_amount() -> None:
+    from app.schemas.billing import PaymentCreateRequest
+
+    cap = 1000
+    assert PaymentCreateRequest(tokens=cap).tokens == cap
+    with pytest.raises(Exception):
+        PaymentCreateRequest(tokens=cap + 1)
+
+
+def test_require_uuid_rejects_sqli_payload() -> None:
+    from app.utils.path_safety import require_uuid
+
+    with pytest.raises(ValueError, match="invalid payment_id UUID"):
+        require_uuid("1' OR '1'='1", "payment_id")
+
+
+def test_production_fail_fast_simulated_payment_confirm(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.core.config.settings.production_mode", True)
+    monkeypatch.setattr("app.core.config.settings.openclaw_api_key", "x" * 16)
+    monkeypatch.setattr("app.core.config.settings.openclaw_hmac_secret", "y" * 16)
+    monkeypatch.setattr("app.core.config.settings.jwt_secret", "z" * 32)
+    monkeypatch.setattr("app.core.config.settings.cookie_secure", True)
+    monkeypatch.setattr("app.core.config.settings.database_url", "postgresql://u:p@localhost/db")
+    monkeypatch.setattr("app.core.config.settings.openclaw_enable_signature", True)
+    monkeypatch.setattr("app.core.config.settings.git_auto_push", False)
+    monkeypatch.setattr("app.core.config.settings.portal_embed_api_key_in_spa", False)
+    monkeypatch.setattr("app.core.config.settings.expose_openapi", False)
+    monkeypatch.setattr("app.core.config.settings.legacy_api_key_enabled", False)
+    monkeypatch.setattr("app.core.config.settings.allow_registration", False)
+    monkeypatch.setattr("app.core.config.settings.first_user_is_admin", False)
+    monkeypatch.setattr("app.core.config.settings.demo_seed_enabled", False)
+    monkeypatch.setattr("app.core.config.settings.payments_simulated_confirm_enabled", True)
+    monkeypatch.setattr("app.core.config.settings.subscriptions_simulated_upgrade_enabled", False)
+    monkeypatch.setattr("app.core.config.settings.admin_cross_tenant_access", False)
+    monkeypatch.setattr("app.core.config.settings.monitoring_allow_server_scrape", False)
+    monkeypatch.setattr(
+        "app.db.user_queries.bootstrap_admin_uses_default_password",
+        lambda: False,
+    )
+    with pytest.raises(RuntimeError, match="PAYMENTS_SIMULATED_CONFIRM"):
+        validate_security_config()
+
+
+def test_production_fail_fast_admin_cross_tenant(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.core.config.settings.production_mode", True)
+    monkeypatch.setattr("app.core.config.settings.openclaw_api_key", "x" * 16)
+    monkeypatch.setattr("app.core.config.settings.openclaw_hmac_secret", "y" * 16)
+    monkeypatch.setattr("app.core.config.settings.jwt_secret", "z" * 32)
+    monkeypatch.setattr("app.core.config.settings.cookie_secure", True)
+    monkeypatch.setattr("app.core.config.settings.database_url", "postgresql://u:p@localhost/db")
+    monkeypatch.setattr("app.core.config.settings.openclaw_enable_signature", True)
+    monkeypatch.setattr("app.core.config.settings.git_auto_push", False)
+    monkeypatch.setattr("app.core.config.settings.portal_embed_api_key_in_spa", False)
+    monkeypatch.setattr("app.core.config.settings.expose_openapi", False)
+    monkeypatch.setattr("app.core.config.settings.legacy_api_key_enabled", False)
+    monkeypatch.setattr("app.core.config.settings.allow_registration", False)
+    monkeypatch.setattr("app.core.config.settings.first_user_is_admin", False)
+    monkeypatch.setattr("app.core.config.settings.demo_seed_enabled", False)
+    monkeypatch.setattr("app.core.config.settings.payments_simulated_confirm_enabled", False)
+    monkeypatch.setattr("app.core.config.settings.subscriptions_simulated_upgrade_enabled", False)
+    monkeypatch.setattr("app.core.config.settings.admin_cross_tenant_access", True)
+    monkeypatch.setattr("app.core.config.settings.monitoring_allow_server_scrape", False)
+    monkeypatch.setattr(
+        "app.db.user_queries.bootstrap_admin_uses_default_password",
+        lambda: False,
+    )
+    with pytest.raises(RuntimeError, match="ADMIN_CROSS_TENANT"):
+        validate_security_config()
+
+
+def test_persistent_dev_deployment_rejects_weak_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.core.config.settings.production_mode", False)
+    monkeypatch.setattr("app.core.config.settings.database_url", "postgresql://u:p@localhost/db")
+    monkeypatch.setattr("app.core.config.settings.allow_insecure_dev_deployment", False)
+    monkeypatch.setattr("app.core.config.settings.openclaw_api_key", "dev-openclaw-key")
+    with pytest.raises(RuntimeError, match="ALLOW_INSECURE_DEV_DEPLOYMENT"):
+        validate_security_config()
+
+
+def test_production_fail_fast_simulated_subscription_upgrade(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.core.config.settings.production_mode", True)
+    monkeypatch.setattr("app.core.config.settings.openclaw_api_key", "x" * 16)
+    monkeypatch.setattr("app.core.config.settings.openclaw_hmac_secret", "y" * 16)
+    monkeypatch.setattr("app.core.config.settings.jwt_secret", "z" * 32)
+    monkeypatch.setattr("app.core.config.settings.cookie_secure", True)
+    monkeypatch.setattr("app.core.config.settings.database_url", "postgresql://u:p@localhost/db")
+    monkeypatch.setattr("app.core.config.settings.openclaw_enable_signature", True)
+    monkeypatch.setattr("app.core.config.settings.git_auto_push", False)
+    monkeypatch.setattr("app.core.config.settings.portal_embed_api_key_in_spa", False)
+    monkeypatch.setattr("app.core.config.settings.expose_openapi", False)
+    monkeypatch.setattr("app.core.config.settings.legacy_api_key_enabled", False)
+    monkeypatch.setattr("app.core.config.settings.allow_registration", False)
+    monkeypatch.setattr("app.core.config.settings.first_user_is_admin", False)
+    monkeypatch.setattr("app.core.config.settings.demo_seed_enabled", False)
+    monkeypatch.setattr("app.core.config.settings.payments_simulated_confirm_enabled", False)
+    monkeypatch.setattr("app.core.config.settings.subscriptions_simulated_upgrade_enabled", True)
+    monkeypatch.setattr("app.core.config.settings.admin_cross_tenant_access", False)
+    monkeypatch.setattr("app.core.config.settings.monitoring_allow_server_scrape", False)
+    monkeypatch.setattr(
+        "app.db.user_queries.bootstrap_admin_uses_default_password",
+        lambda: False,
+    )
+    with pytest.raises(RuntimeError, match="SUBSCRIPTIONS_SIMULATED_UPGRADE"):
+        validate_security_config()
+
+
+def test_refresh_requires_csrf_token(admin_user: AuthTestUser) -> None:
+    client = login_client(admin_user)
+    denied = client.post("/api/v1/public/auth/refresh")
+    assert denied.status_code == 403
+    allowed = client.post(
+        "/api/v1/public/auth/refresh",
+        headers=cookie_write_headers(client),
+    )
+    assert allowed.status_code == 200

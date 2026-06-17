@@ -7,7 +7,10 @@ import os
 class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     openclaw_api_key: str = Field(default="dev-openclaw-key")
-    openclaw_enable_signature: bool = Field(default=False)
+    openclaw_enable_signature: bool = Field(
+        default=True,
+        description="Require HMAC X-Signature on POST /openclaw/reports",
+    )
     openclaw_hmac_secret: str = Field(default="dev-secret")
     content_raw_dir: str = Field(default="content/reports/raw")
     content_rendered_dir: str = Field(default="content/reports/rendered")
@@ -49,6 +52,17 @@ class Settings(BaseSettings):
     serve_spa: bool = Field(default=True, description="Serve built frontend from frontend/dist")
     # Deprecated: do not embed API keys in SPA HTML (security risk). Use portal session cookie instead.
     portal_embed_api_key_in_spa: bool = Field(default=False)
+    # When false (default), ADMIN queries are tenant-scoped like USER (multi-tenant SaaS).
+    admin_cross_tenant_access: bool = Field(
+        default=False,
+        description="Allow ADMIN role to bypass user_id filters (platform operator mode)",
+    )
+    # Acknowledge dev-default secrets on a persistent deployment (local labs only).
+    allow_insecure_dev_deployment: bool = Field(default=False)
+    demo_allow_public_bind: bool = Field(
+        default=False,
+        description="Allow demo seed when bind_host accepts non-loopback clients",
+    )
     # When true, refuse startup if default/weak secrets or signature disabled (production hardening).
     production_mode: bool = Field(default=False)
     expose_openapi: bool = Field(default=False)
@@ -83,6 +97,26 @@ class Settings(BaseSettings):
     legacy_api_key_enabled: bool = Field(
         default=False,
         description="When true, OPENCLAW_OPENCLAW_API_KEY maps to ADMIN scope (deprecated transition)",
+    )
+    legacy_portal_session_enabled: bool = Field(
+        default=False,
+        description="When true, openclaw_portal_session cookie grants legacy ADMIN (dev only)",
+    )
+    subscriptions_simulated_upgrade_enabled: bool = Field(
+        default=True,
+        description="Allow POST /public/subscriptions/upgrade without payment (disable in production)",
+    )
+    monitoring_max_per_user: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+        description="Max price monitors per user (bootstrap quota)",
+    )
+    chat_max_concurrent_turns: int = Field(
+        default=32,
+        ge=1,
+        le=500,
+        description="Global cap on concurrent Gateway chat turns across all users",
     )
     login_max_attempts: int = Field(default=5)
     login_lockout_seconds: int = Field(default=900)
@@ -145,7 +179,11 @@ class Settings(BaseSettings):
     )
     simulated_recharge_amount: int = Field(
         default=1000,
-        description="Tokens credited per simulated recharge (no real payment)",
+        description="Tokens credited per simulated recharge (no real payment); also caps per-order tokens/amount",
+    )
+    payments_simulated_confirm_enabled: bool = Field(
+        default=True,
+        description="Allow POST /public/payments/{id}/confirm without a real payment gateway (disable in production)",
     )
     subscription_monthly_tokens_free: int = Field(
         default=5000,
